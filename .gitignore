@@ -23,3 +23,5 @@ mentor-*.tar
 /tmp/
 
 /priv/plts/
+
+.env

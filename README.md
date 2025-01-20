@@ -1,8 +1,5 @@
 # Mentor
 
-> ![WARNING]
-> This library is under active development and isn't ready for production use, expect breaking changes.
-
 Because we love composability!
 
 No magic, but a higher-level API to generate structed output based on a "schema", it can be:
@@ -19,23 +16,6 @@ def deps do
   ]
 end
 ```
-
-## Usage
-
-Given a structure that you wanna have a LLM to output, let's say a raw `User` struct:
-
-```elixir
-defmodule User do
-  @moduledoc """
-  
-  """
-
-  @derive Mentor.Schema
-  defstruct [:name, :age]
-end
-```
-
-_TODO_
 
 ## References
 - [OpenAI text generation docs](https://platform.openai.com/docs/guides/text-generation)
