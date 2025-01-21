@@ -5,7 +5,7 @@ defmodule MentorTest do
 
   alias Mentor.LLM.Adapters.OpenAI
 
-  Code.compile_file(Path.expand("./schema.ex"))
+  Code.compile_file(Path.expand("./evaluation/schema.ex"))
 
   setup :verify_on_exit!
 

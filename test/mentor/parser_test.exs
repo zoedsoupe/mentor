@@ -3,8 +3,6 @@ defmodule Mentor.ParserTest do
 
   alias Mentor.Parser
 
-  doctest Mentor.Parser
-
   describe "run/1" do
     test "parses a simple valid markdown with single-line descriptions" do
       markdown = """
@@ -14,13 +12,7 @@ defmodule Mentor.ParserTest do
       - `age`: The user's age.
       """
 
-      assert Parser.run(markdown) == [
-               {:section, "Fields",
-                [
-                  {:field, :name, "The user's name."},
-                  {:field, :age, "The user's age."}
-                ]}
-             ]
+      assert [] = Parser.run(markdown, [:name, :age])
     end
 
     test "parses multiline field descriptions correctly" do
@@ -32,13 +24,7 @@ defmodule Mentor.ParserTest do
       that defines the user age.
       """
 
-      assert Parser.run(markdown) == [
-               {:section, "Fields",
-                [
-                  {:field, :name, "The user's name."},
-                  {:field, :age, "The user's age that defines the user age."}
-                ]}
-             ]
+      assert [] = Parser.run(markdown, [:name, :age])
     end
 
     test "ignores unrelated markdown outside ## Fields" do
@@ -56,12 +42,7 @@ defmodule Mentor.ParserTest do
       This section is unrelated.
       """
 
-      assert Parser.run(markdown) == [
-               {:section, "Fields",
-                [
-                  {:field, :name, "The user's name."}
-                ]}
-             ]
+      assert [] = Parser.run(markdown, [:name])
     end
 
     test "handles multiple sections with only the relevant section parsed" do
@@ -75,12 +56,7 @@ defmodule Mentor.ParserTest do
       - `irrelevant`: This is ignored.
       """
 
-      assert Parser.run(markdown) == [
-               {:section, "Fields",
-                [
-                  {:field, :name, "The user's name."}
-                ]}
-             ]
+      assert [] = Parser.run(markdown, [:name])
     end
 
     test "parses markdown with no fields gracefully" do
@@ -88,9 +64,7 @@ defmodule Mentor.ParserTest do
       ## Fields
       """
 
-      assert Parser.run(markdown) == [
-               {:section, "Fields", []}
-             ]
+      assert [] = Parser.run(markdown, [])
     end
 
     test "returns an empty list for completely unrelated markdown" do
@@ -100,7 +74,7 @@ defmodule Mentor.ParserTest do
       This document has no relevant sections.
       """
 
-      assert Parser.run(markdown) == []
+      assert [] = Parser.run(markdown, [])
     end
 
     test "handles trailing empty lines gracefully" do
@@ -111,12 +85,7 @@ defmodule Mentor.ParserTest do
 
       """
 
-      assert Parser.run(markdown) == [
-               {:section, "Fields",
-                [
-                  {:field, :name, "The user's name."}
-                ]}
-             ]
+      assert [] = Parser.run(markdown, [:name])
     end
 
     test "parses complex multiline descriptions with empty lines" do
@@ -129,13 +98,7 @@ defmodule Mentor.ParserTest do
       and ensures validity.
       """
 
-      assert Parser.run(markdown) == [
-               {:section, "Fields",
-                [
-                  {:field, :name, "The user's name."},
-                  {:field, :age, "The user's age that defines the user age and ensures validity."}
-                ]}
-             ]
+      assert [] = Parser.run(markdown, [:name, :age])
     end
 
     test "handles descriptions with embedded newlines as a single paragraph" do
@@ -149,14 +112,32 @@ defmodule Mentor.ParserTest do
       - `short`: Single-line description.
       """
 
-      assert Parser.run(markdown) == [
-               {:section, "Fields",
-                [
-                  {:field, :description,
-                   "This is a field with a long description that spans multiple lines."},
-                  {:field, :short, "Single-line description."}
-                ]}
-             ]
+      assert [] = Parser.run(markdown, [:description, :short])
+    end
+
+    test "handles descriptions with nested fields newlines" do
+      markdown = """
+      ## Fields
+
+      - `first_name`: Their first name
+      - `party`: Theier politic party, the most recent you have knowledge
+      - `last_name`: Their last name
+      - `offices_held`:
+        - `office`: The name of the political office held by the politician (in lowercase)
+        - `from_date`: When they entered office (YYYY-MM-DD)
+        - `to_date`: The date they left office, if relevant (YYYY-MM-DD or null).
+      """
+
+      assert [] =
+               Parser.run(markdown, [
+                 :first_name,
+                 :last_name,
+                 :party,
+                 :offices_held,
+                 :office,
+                 :from_date,
+                 :to_date
+               ])
     end
   end
 end

@@ -18,7 +18,6 @@ defmodule Mentor do
   alias Mentor.LLM.Adapters.OpenAI
 
   @type message :: %{role: String.t(), content: term}
-  @type schema :: Ecto.Schema.t()
 
   @typedoc """
   Represents the state of a Mentor session.
@@ -36,12 +35,12 @@ defmodule Mentor do
   - `:http_client` - The HTTP Client that implements the `Mentor.HTTPClient.Adapter` behaviour to be used to dispatch HTTP requests to the LLM adapter.
   """
   @type t :: %__MODULE__{
-          __schema__: schema,
+          __schema__: Mentor.Schema.t(),
           json_schema: map | nil,
-          adapter: OpenAI | module,
+          adapter: module,
           initial_prompt: String.t(),
           messages: list(message),
-          config: Enumerable.t(),
+          config: keyword,
           max_retries: integer,
           debug: boolean,
           http_client: module
@@ -100,12 +99,12 @@ defmodule Mentor do
         when config: list(option),
              option:
                {:max_retries, integer}
-               | {:schema, schema}
+               | {:schema, Mentor.Schema.t()}
                | {:adapter_config, keyword}
                | {:http_client, module}
   def start_chat_with!(adapter, opts) when is_llm_adapter(adapter) and is_list(opts) do
     schema = Keyword.fetch!(opts, :schema)
-    config = Keyword.fetch!(opts, :adapter_config)
+    config = Keyword.get(opts, :adapter_config)
     max_retries = Keyword.get(opts, :max_retries, 3)
     http_client = Keyword.get(opts, :http_client, Mentor.HTTPClient.Finch)
 
@@ -143,9 +142,7 @@ defmodule Mentor do
 
   @spec maybe_get_documentation(module) :: String.t() | nil
   defp maybe_get_documentation(schema) do
-    if function_exported?(schema, :__mentor_schema_documentation__, 0) do
-      schema.__mentor_schema_documentation__()
-    end
+    schema.__mentor_schema_documentation__() || schema.llm_description()
   end
 
   @doc """
@@ -194,7 +191,7 @@ defmodule Mentor do
   """
   @spec configure_adapter(t, adapter_config :: keyword) :: t
   def configure_adapter(%__MODULE__{} = mentor, config) when is_list(config) do
-    %{mentor | config: Keyword.merge(mentor.config, config)}
+    %{mentor | config: Keyword.merge(mentor.config || [], config)}
   end
 
   @doc """
@@ -267,7 +264,7 @@ defmodule Mentor do
       iex> Mentor.complete(mentor)
       {:error, :adapter_not_configured}
   """
-  @spec complete(t) :: {:ok, struct} | {:error, Ecto.Changeset.t()}
+  @spec complete(t) :: {:ok, Mentor.Schema.t()} | {:error, term}
   def complete(%__MODULE__{adapter: adapter} = mentor)
       when not is_nil(mentor.__schema__) and not is_nil(mentor.adapter) and is_list(mentor.config) do
     mentor = prepare_prompt(mentor)

@@ -1,0 +1,334 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Quickstart
+
+```elixir
+Mix.install([:mentor])
+```
+
+## Introduction
+
+`mentor` is a library to do structured prompting with LLMs. While the idea is pretty simple, through this and the other examples you'll realize how powerful a concept this is.
+
+**So first off, what is structure prompting?**
+
+What if the LLM returned data conforming to a complicated nested schema that your code knows how to work with? Well, that's structure prompting. It's a way of cohercing the LLM to producing it's response in a known format that your downstream code can handle. In the case of `mentor`, we use `Ecto`, `Peri`, raw structs or even maps to provide those schemas.
+
+So, without further ado, let's take define a schema and take it for a spin!
+
+### Ecto
+
+```elixir
+defmodule Politician do
+  @moduledoc """
+  A description of Brazilian Politicians and the offices that they held, you can specify only the most relevants held offices in the past 20 years.
+
+  ## Fields
+
+  - `first_name`: Their first name
+  - `party`: Theier politic party, the most recent you have knowledge
+  - `last_name`: Their last name
+  - `offices_held`:
+    - `office`: The name of the political office held by the politician (in lowercase)
+    - `from_date`: When they entered office (YYYY-MM-DD)
+    - `to_date`: The date they left office, if relevant (YYYY-MM-DD or null).
+  """
+
+  use Ecto.Schema
+  use Mentor.Ecto.Schema
+
+  import Ecto.Changeset
+
+  @primary_key false
+  embedded_schema do
+    field :first_name, :string
+    field :last_name, :string
+    field :party, :string
+
+    embeds_many :offices_held, Office, primary_key: false do
+      @offices ~w(president vice_president minister senator deputy governor vice_governor state_secretary state_deputy mayor deputy_mayor city_councilor)a
+
+      field :office, Ecto.Enum, values: @offices
+      field :from_date, :date
+      field :to_date, :date
+    end
+  end
+
+  @impl true
+  def changeset(%__MODULE__{} = politician, %{} = attrs) do
+    politician
+    |> cast(attrs, [:first_name, :last_name, :party])
+    |> validate_required([:first_name, :last_name])
+    |> cast_embed(:offices_held, required: true, with: &offices_held_changeset/2)
+  end
+
+  defp offices_held_changeset(offices, %{} = attrs) do
+    offices
+    |> cast(attrs, [:office, :from_date, :to_date])
+    |> validate_required([:office, :from_date, :to_date])
+  end
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, Politician, <<70, 79, 82, 49, 0, 0, 17, ...>>,
+ [__schema__: 1, __schema__: 1, __schema__: 1, __schema__: 1, __schema__: 2, __schema__: 2, ...]}
+```
+
+Great, we have our schema describing politicans and the offices they held. Let's notice a few things that may stand out from regular `Ecto` usage. First, since there is no database backing the schema, it doesn't make sense to give it a primary_key. This also makes sense because there is no sensible value for the LLM to respond with.
+
+Also we use an usual `@moduledoc` on the schema. This isn't just for documentation purposes of the tutorial. `mentor` will take any `@moduledoc` tag and provide it to the LLM. Generally you'll want to use this to provide semantic descriptions of the fields and general context to the LLM to ensure you get the outputs you want. In our case we want to push the LLM to understand that we are only considering Brazilian politicians.
+
+So, let's try asking the LLM to give us some politicians.
+
+```elixir
+alias Mentor.LLM.Adapters.OpenAI
+
+Mentor.start_chat_with!(OpenAI, schema: Politician)
+|> Mentor.configure_adapter(
+  model: "gpt-4o-mini",
+  api_key: System.fetch_env!("LB_OPENAI_API_KEY")
+)
+|> Mentor.append_message(%{
+  role: "user",
+  content: "Who won the Brazilian 2022 election and what offices have they held over their career?"
+})
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:ok,
+ %Politician{
+   first_name: "Luiz Inácio",
+   last_name: "Lula da Silva",
+   party: "Partido dos Trabalhadores (PT)",
+   offices_held: [
+     %Politician.Office{
+       office: :president,
+       from_date: ~D[2003-01-01],
+       to_date: ~D[2006-12-31]
+     },
+     %Politician.Office{
+       office: :president,
+       from_date: ~D[2007-01-01],
+       to_date: ~D[2010-12-31]
+     },
+     %Politician.Office{
+       office: :president,
+       from_date: ~D[2023-01-01],
+       to_date: ~D[2026-12-31]
+     }
+   ]
+ }}
+```
+
+Amazing, right? Using nothing more than a simple schema, we were able to get structured output from our LLM. The data returned is ready to be processed by our regular Elixir code. `mentor` supports all field types that you can express in schema libraries, like in `Ecto`: including embedded and associated schemas.
+
+It's almost as if the LLM inputted the data into a Phoenix Form. All the utilities that you use to process that kind of data, you can use to process the outputs of `mentor`.
+
+One of the superpowers of this is that since we're just using changesets under the hood, you can use the same validations that you would use elsewhere in your app. Let's look at that in the next section.
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Validations
+
+`mentor` leverages `Ecto` changesets to validate the data returned by the LLM. Therefore there is nothing fancy to this API since it uses the usual `changeset/2` function you would already implement.
+
+```elixir
+defmodule NumberSeries do
+  @moduledoc """
+  ## Fields
+
+  - `series`: an array of integers
+  """
+
+  use Ecto.Schema
+  use Mentor.Ecto.Schema
+
+  import Ecto.Changeset
+
+  @primary_key false
+  embedded_schema do
+    field :series, {:array, :integer}
+  end
+
+  @impl true
+  def changeset(%__MODULE__{} = number_series, %{} = attrs) do
+    number_series
+    |> cast(attrs, [:series])
+    |> validate_length(:series, min: 10)
+    |> validate_change(:series, fn
+      field, values ->
+        if Enum.sum(values) |> rem(2) == 0 do
+          []
+        else
+          [{field, "The sum of the series must be even"}]
+        end
+    end)
+  end
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, NumberSeries, <<70, 79, 82, 49, 0, 0, 18, ...>>, {:changeset, 2}}
+```
+
+In this albeit contrived example, we're going to get the LLM to return a series of numbers and validate whether it has at least 10 numbers and that the sum of the series is even.
+
+When we ask for fewer than ten numbers, `mentor` will return an error tuple with a change set that is invalid.
+
+```elixir
+Mentor.start_chat_with!(OpenAI, schema: NumberSeries)
+|> Mentor.configure_adapter(
+  model: "gpt-4o-mini",
+  api_key: System.fetch_env!("LB_OPENAI_API_KEY")
+)
+|> Mentor.append_message(%{
+  role: "user",
+  content: "Give me the first 5 integers"
+})
+|> Mentor.complete
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:error,
+ #Ecto.Changeset<
+   action: :parse,
+   changes: %{series: [1, 2, 3, 4, 5]},
+   errors: [
+     series: {"The sum of the series must be even", []},
+     series: {"should have at least %{count} item(s)",
+      [count: 10, validation: :length, kind: :min, type: :list]}
+   ],
+   data: #NumberSeries<>,
+   valid?: false,
+   ...
+ >}
+```
+
+Now the beauty of this is that since we have human readable errors from our validations, we can just turn around and pass those back into the LLM to get it to fix its own errors.
+
+`mentor` provides a convenience parameter, `max_retries` for you in the initial call which will retry against the validations up to n times.
+
+```elixir
+Mentor.start_chat_with!(OpenAI,
+  schema: NumberSeries,
+  max_retries: 10
+)
+|> Mentor.configure_adapter(model: "gpt-4o-mini", api_key: System.fetch!("LB_OPENAI_API_KEY"))
+|> Mentor.append_message(%{role: "user", content: "Give some random integers"})
+|> Mentor.complete
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+
+10:30:03.764 [debug] Retrying LLM call for NumberSeries:
+
+ "series - The sum of the series must be even\nseries - should have at least 10 item(s)"
+
+10:30:04.794 [debug] Retrying LLM call for NumberSeries:
+
+ "series - The sum of the series must be even"
+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:ok,
+ %NumberSeries{series: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]}}
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Record Streaming
+
+TODO
+
+## Custom Ecto Types
+
+`mentor` supports all the `Ecto` types out of the box, but sometimes you need more. And that's why Instructor provides a behavior that you can implement on your own custom Ecto types. All you have to do is implement `to_json_schema/0`.
+
+Whatever you return from this function will be put as the field type. See the [JSONSchema Specification](https://json-schema.org/understanding-json-schema/reference) for more information on what you can put here. Typically you'll see people put `description`, `type`, and maybe `format`.
+
+```elixir
+defmodule EctoURI do
+  use Ecto.Type
+  use Mentor.Ecto.Type
+
+  def type, do: :map
+
+  # This is it, the rest is for implementing a regular old ecto type.
+  @impl true
+  def to_json_schema do
+    %{
+      type: "string",
+      description: "A valid URL"
+    }
+  end
+
+  def cast(uri) when is_binary(uri) do
+    {:ok, URI.parse(uri)}
+  end
+
+  def cast(%URI{} = uri), do: {:ok, uri}
+  def cast(_), do: :error
+
+  def load(data) when is_map(data) do
+    data =
+      for {key, val} <- data do
+        {String.to_existing_atom(key), val}
+      end
+
+    {:ok, struct!(URI, data)}
+  end
+
+  def dump(%URI{} = uri), do: {:ok, Map.from_struct(uri)}
+  def dump(_), do: :error
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, EctoURI, <<70, 79, 82, 49, 0, 0, 14, ...>>, {:dump, 1}}
+```
+
+```elixir
+Mentor.start_chat_with!(OpenAI,
+  schema: %{url: EctoURI},
+  max_retries: 10
+)
+|> Mentor.configure_adapter(model: "gpt-4o-mini", api_key: System.fetch!("LB_OPENAI_API_KEY"))
+|> Mentor.append_message(%{role: "user", content: "Give me the URL for Google"})
+|> Mentor.complete
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:ok,
+ %{
+   url: %URI{
+     scheme: "https",
+     authority: "www.google.com",
+     userinfo: nil,
+     host: "www.google.com",
+     port: 443,
+     path: nil,
+     query: nil,
+     fragment: nil
+   }
+ }}
+```
+
+And just like that, you can extend `mentor` to get the LLM to return whatever you want.
