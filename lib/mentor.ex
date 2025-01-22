@@ -129,7 +129,9 @@ defmodule Mentor do
 
   @spec ecto_schema?(module) :: boolean
   defp ecto_schema?(schema) when is_atom(schema) do
-    function_exported?(schema, :__schema__, 1)
+    if Code.ensure_loaded?(schema) do
+      function_exported?(schema, :__schema__, 1)
+    end
   end
 
   defp maybe_append_schema_documentation_message(%__MODULE__{} = mentor) do

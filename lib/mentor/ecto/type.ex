@@ -22,5 +22,11 @@ defmodule Mentor.Ecto.Type do
   ```
   """
 
+  defmacro __using__(_opts) do
+    quote do
+      @behaviour Mentor.Ecto.Type
+    end
+  end
+
   @callback to_json_schema :: map
 end

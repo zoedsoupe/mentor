@@ -258,7 +258,7 @@ defmodule Mentor.Ecto.JSONSchema do
   end
 
   defp for_type(mod) do
-    if function_exported?(mod, :to_json_schema, 0) do
+    if Code.ensure_loaded?(mod) and function_exported?(mod, :to_json_schema, 0) do
       mod.to_json_schema()
     else
       raise "Unsupported type: #{inspect(mod)}, please implement `to_json_schema/0` via `Mentor.Ecto.Type` behaviour"

@@ -21,6 +21,12 @@ defmodule Mentor.LLM.Adapters.OpenAI do
                required: true,
                doc:
                  "The OpenAI model to query on, known models are: `#{inspect(@known_models, pretty: true)}`"
+             ],
+             temperature: [
+               type: :float,
+               default: 1.0,
+               doc:
+                 "What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic."
              ]
            )
 
@@ -80,7 +86,11 @@ defmodule Mentor.LLM.Adapters.OpenAI do
       {"authorization", "Bearer #{config[:api_key]}"}
     ]
 
-    mentor.http_client.request(config[:url], body, headers, [])
+    mentor.http_client.request(config[:url], body, headers,
+      receive_timeout: 60_000,
+      request_timeout: 20_000,
+      pool_timeout: 70_000
+    )
   end
 
   defp make_open_ai_body(%Mentor{} = mentor, config) do
