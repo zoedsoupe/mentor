@@ -183,7 +183,6 @@ defmodule Mentor.Ecto.JSONSchema do
   defp for_type(:boolean), do: %{type: "boolean"}
   defp for_type(:string), do: %{type: "string"}
   defp for_type({:array, type}), do: %{type: "array", items: for_type(type)}
-  defp for_type(:map), do: %{type: "object", additionalProperties: %{}}
 
   defp for_type({:map, type}),
     do: %{type: "object", additionalProperties: for_type(type)}
