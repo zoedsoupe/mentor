@@ -1,7 +1,7 @@
 defmodule Mentor.MixProject do
   use Mix.Project
 
-  @version "0.1.3"
+  @version "0.2.0"
   @source_url "https://github.com/zoedsoupe/mentor"
 
   def project do
@@ -63,7 +63,7 @@ defmodule Mentor.MixProject do
 
     [
       main: "readme",
-      extras: ["README.md"] ++ pages,
+      extras: ["README.md", "CHANGELOG.md"] ++ pages,
       source_ref: "v#{@version}",
       source_url: @source_url
     ]

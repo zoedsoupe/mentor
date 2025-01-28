@@ -5,8 +5,10 @@ defmodule Evaluator do
     config = [api_key: System.fetch_env!("OPENAI_API_KEY"), model: "gpt-4o-mini"]
 
     OpenAI
-    |> Mentor.start_chat_with!(schema: Schema, adapter_config: config, max_retries: 1)
-    |> Mentor.complete!
+    |> Mentor.start_chat_with!(schema: Schema, max_retries: 1)
+    |> Mentor.overwrite_initial_prompt()
+    |> Mentor.configure_adapter(config)
+    |> Mentor.complete
   end
 
   def run_number_series do
@@ -19,7 +21,7 @@ defmodule Evaluator do
       role: "user",
       content: "Give me the first 5 integers"
     })
-    |> Mentor.complete!
+    |> Mentor.complete
   end
 
   def run_politician do
@@ -32,6 +34,6 @@ defmodule Evaluator do
       role: "user",
       content: "Who won the Brazilian 2022 election and what offices have they held over their career?"
     })
-    |> Mentor.complete!
+    |> Mentor.complete
   end
 end

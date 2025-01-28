@@ -65,7 +65,7 @@ defmodule Mentor.LLM.Adapter do
       false
   """
   def impl_by?(module) when is_atom(module) do
-    with true <- Code.ensure_loaded?(module) do
+    if Code.ensure_loaded?(module) do
       callbacks = __MODULE__.behaviour_info(:callbacks)
       functions = module.__info__(:functions)
 

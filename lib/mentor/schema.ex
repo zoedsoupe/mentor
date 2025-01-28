@@ -15,7 +15,7 @@ defmodule Mentor.Schema do
 
   @type source :: module | map
   @type field :: {name :: atom, type :: atom}
-  @type t :: struct | map
+  @type t :: struct | map | module
 
   @callback definition(source) :: list(field)
   @callback validate(source, data :: map) :: {:ok, t} | {:error, term}

@@ -55,9 +55,9 @@ defmodule Mentor.Ecto.Schema do
       end
   """
 
-  import Mentor.Schema
-
   @behaviour Mentor.Schema
+
+  import Mentor.Schema
 
   @callback changeset(Ecto.Schema.t(), map) :: Ecto.Changeset.t()
   @callback llm_description :: String.t()
@@ -84,17 +84,19 @@ defmodule Mentor.Ecto.Schema do
 
     keys = Enum.map(schema, &elem(&1, 0))
     parse_llm_description!(doc, keys, env)
-    if is_nil(doc), do: missing_documentation!(env, keys)
+    if String.length(doc) < 1, do: missing_documentation!(env, keys)
   end
 
   defmacro __before_compile__(env) do
     doc =
       case Module.get_attribute(env.module, :moduledoc) do
         {_line, doc} -> doc
-        _ -> nil
+        _ -> ""
       end
 
     quote do
+      @doc false
+      @spec __mentor_schema_documentation__ :: String.t()
       def __mentor_schema_documentation__, do: unquote(doc)
     end
   end
@@ -105,8 +107,7 @@ defmodule Mentor.Ecto.Schema do
 
     # Get field types from schema
     field_types =
-      fields
-      |> Enum.map(fn field ->
+      Enum.map(fields, fn field ->
         field_type = get_field_type(module, field)
         {field, field_type}
       end)
@@ -210,7 +211,8 @@ defmodule Mentor.Ecto.Schema do
   """
   @impl true
   def validate(schema, %{} = data) do
-    struct(schema)
+    schema
+    |> struct()
     |> schema.changeset(data)
     |> Ecto.Changeset.apply_action(:parse)
   end
