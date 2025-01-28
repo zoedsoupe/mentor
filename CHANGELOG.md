@@ -2,6 +2,67 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2025-01-28
+
+### Added
+- Added `configure_http_client/3` function to provide a more flexible way to configure HTTP clients
+- Added type specifications for all public functions
+
+### Changed
+- **Breaking**: Removed `adapter_config` from `start_chat_with!/2` options. Configuration should now be done through `configure_adapter/2`
+- Improved error handling for HTTP client validation
+- Enhanced error handling for better insight into validation failures
+- Restructured the codebase for better maintainability
+
+### Fixed
+- Fixed Dialyzer warnings across the codebase
+- Fixed type specifications to be more accurate and complete
+
+## [0.1.3] - 2025-01-22
+
+### Added
+- Added HTTP options configuration support for OpenAI adapter
+- Added configurable timeouts for HTTP requests
+
+### Changed
+- Improved HTTP client configuration handling
+- Enhanced documentation and examples
+
+## [0.1.2] - 2025-01-22
+
+### Added
+- Added temperature configuration option for OpenAI adapter
+- Added proper HTTP timeout configurations
+
+### Fixed
+- Fixed module loading issues with `Code.ensure_loaded?/1`
+- Fixed custom type handling in JSON Schema generation
+
+### Changed
+- Improved error handling in custom type implementations
+- Enhanced documentation for custom types
+
+## [0.1.1] - 2025-01-21
+
+### Added
+- Added support for custom `llm_description/0` callback
+- Added new parser implementation for better field documentation validation
+- Added comprehensive documentation and examples
+- Added evaluation modules for testing and demonstration
+
+### Changed
+- Simplified the parser implementation
+- Improved documentation parsing and validation
+- Enhanced error messages for missing field documentation
+
+### Fixed
+- Fixed documentation validation for nested fields
+- Fixed schema field parsing
+
+All these changes follow semantic versioning principles, where:
+- 0.2.0 includes breaking changes to the API
+- 0.1.1 through 0.1.3 add new features and fixes in a backward-compatible way
+
 ## [0.1.0] - 2025-01-20
 
 ### Added

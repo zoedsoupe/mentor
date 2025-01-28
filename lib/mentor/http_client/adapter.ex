@@ -58,4 +58,33 @@ defmodule Mentor.HTTPClient.Adapter do
   @type request_opts :: keyword
 
   @callback request(url, body, headers, request_opts) :: {:ok, term} | {:error, term}
+
+  @doc """
+  Checks if the given module implements the `Mentor.HTTPClient.Adapter` behaviour.
+
+  ## Parameters
+
+  - `module`: The module to be checked.
+
+  ## Returns
+
+  - `true` if the module implements the behaviour.
+  - `false` otherwise.
+
+  ## Examples
+
+      iex> Mentor.HTTPClient.Adapter.impl_by?(MyApp.HTTPClient.CustomAdapter)
+      true
+
+      iex> Mentor.HTTPClient.Adapter.impl_by?(String)
+      false
+  """
+  def impl_by?(module) when is_atom(module) do
+    if Code.ensure_loaded?(module) do
+      callbacks = __MODULE__.behaviour_info(:callbacks)
+      functions = module.__info__(:functions)
+
+      Enum.empty?(callbacks -- functions)
+    end
+  end
 end

@@ -31,7 +31,8 @@ defmodule Mentor.HTTPClient.Finch do
   def request(url, body, headers, opts \\ []) do
     body = JSON.encode_to_iodata!(body)
 
-    Finch.build(:post, url, headers, body, opts)
+    :post
+    |> Finch.build(url, headers, body, opts)
     |> Finch.request(Mentor.Finch)
   end
 end

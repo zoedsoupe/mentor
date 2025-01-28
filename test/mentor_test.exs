@@ -12,13 +12,11 @@ defmodule MentorTest do
   @mock TestHTTPClient
 
   setup_all do
-    opts = [
-      schema: Schema,
-      adapter_config: [api_key: "hehe", model: "gpt-4o-mini"],
-      http_client: @mock
-    ]
-
-    {:ok, mentor: Mentor.start_chat_with!(OpenAI, opts)}
+    {:ok,
+     mentor:
+       Mentor.start_chat_with!(OpenAI, schema: Schema)
+       |> Mentor.configure_adapter(api_key: "hehe", model: "gpt-4o-mini")
+       |> Mentor.configure_http_client(@mock)}
   end
 
   test "start_chat_with!/2 initializes Mentor struct correctly" do
@@ -26,7 +24,9 @@ defmodule MentorTest do
     adapter = OpenAI
     config = [model: "gpt-4", api_key: "test_key"]
 
-    mentor = Mentor.start_chat_with!(adapter, schema: schema, adapter_config: config)
+    mentor =
+      Mentor.start_chat_with!(adapter, schema: schema)
+      |> Mentor.configure_adapter(config)
 
     assert %Mentor{
              __schema__: ^schema,
@@ -47,8 +47,7 @@ defmodule MentorTest do
 
   describe "complete/1" do
     test "processes successful response correctly", %{mentor: mentor} do
-      @mock
-      |> expect(:request, fn _url, _body, _headers, _opts ->
+      expect(@mock, :request, fn _url, _body, _headers, _opts ->
         body =
           JSON.encode!(%{
             choices: [

@@ -14,6 +14,7 @@ defmodule Mentor do
   """
 
   alias Mentor.Ecto, as: MentorEcto
+  alias Mentor.HTTPClient.Finch
   alias Mentor.LLM.Adapter
   alias Mentor.LLM.Adapters.OpenAI
 
@@ -35,7 +36,7 @@ defmodule Mentor do
   - `:http_client` - The HTTP Client that implements the `Mentor.HTTPClient.Adapter` behaviour to be used to dispatch HTTP requests to the LLM adapter.
   """
   @type t :: %__MODULE__{
-          __schema__: Mentor.Schema.t(),
+          __schema__: Mentor.Schema.t() | nil,
           json_schema: map | nil,
           adapter: module,
           initial_prompt: String.t(),
@@ -43,7 +44,8 @@ defmodule Mentor do
           config: keyword,
           max_retries: integer,
           debug: boolean,
-          http_client: module
+          http_client: module,
+          http_config: keyword
         }
 
   defstruct [
@@ -51,11 +53,12 @@ defmodule Mentor do
     :json_schema,
     :initial_prompt,
     :adapter,
-    http_client: Mentor.HTTPClient.Finch,
+    http_client: Finch,
     debug: false,
     max_retries: 3,
     messages: [],
-    config: []
+    config: [],
+    http_config: []
   ]
 
   defguard is_llm_adapter(llm) when llm in [OpenAI] or is_atom(llm)
@@ -80,13 +83,11 @@ defmodule Mentor do
   - `adapter` - The LLM adapter module to handle interactions (e.g., `Mentor.LLM.Adapters.OpenAI`).
   - `opts` - A keyword list of options:
     - `:schema` - The schema module or map defining the expected data structure, required.
-    - `:adapter_config` - Configuration options specific to the adapter, required.
     - `:max_retries` (optional) - The maximum number of retries for validation failures (default: 3).
 
   ## Examples
 
-      iex> config = [model: "gpt-4", api_key: System.get_env("OPENAI_API_KEY")]
-      iex> Mentor.start_chat_with!(Mentor.LLM.Adapters.OpenAI, schema: MySchema, adapter_config: config)
+      iex> Mentor.start_chat_with!(Mentor.LLM.Adapters.OpenAI, schema: MySchema)
       %Mentor{}
 
       iex> Mentor.start_chat_with!(UnknownLLMAdapter, schema: MySchema)
@@ -97,16 +98,10 @@ defmodule Mentor do
   """
   @spec start_chat_with!(module, config) :: t
         when config: list(option),
-             option:
-               {:max_retries, integer}
-               | {:schema, Mentor.Schema.t()}
-               | {:adapter_config, keyword}
-               | {:http_client, module}
+             option: {:max_retries, integer} | {:schema, Mentor.Schema.t()}
   def start_chat_with!(adapter, opts) when is_llm_adapter(adapter) and is_list(opts) do
     schema = Keyword.fetch!(opts, :schema)
-    config = Keyword.get(opts, :adapter_config)
     max_retries = Keyword.get(opts, :max_retries, 3)
-    http_client = Keyword.get(opts, :http_client, Mentor.HTTPClient.Finch)
 
     if not Adapter.impl_by?(adapter) do
       raise "#{inspect(adapter)} should implement the #{inspect(Adapter)} behaviour."
@@ -116,15 +111,13 @@ defmodule Mentor do
       raise "#{inspect(schema)} should be an Ecto.Schema"
     end
 
-    %__MODULE__{
+    maybe_append_schema_documentation_message(%__MODULE__{
       __schema__: schema,
       initial_prompt: @initial_prompt,
       adapter: adapter,
-      config: config,
       max_retries: max_retries,
-      http_client: http_client
-    }
-    |> then(&maybe_append_schema_documentation_message/1)
+      http_client: Finch
+    })
   end
 
   @spec ecto_schema?(module) :: boolean
@@ -166,10 +159,10 @@ defmodule Mentor do
       iex> Mentor.overwrite_initial_prompt(mentor, new_prompt)
       %Mentor{initial_prompt: "You are a helpful assistant."}
   """
-  def overwrite_initial_prompt(%__MODULE__{} = mentor, initial_prompt)
+  @spec overwrite_initial_prompt(t, String.t()) :: t
+  def overwrite_initial_prompt(%__MODULE__{} = mentor, initial_prompt \\ "")
       when is_binary(initial_prompt) do
-    %{mentor | initial_prompt: initial_prompt}
-    |> then(&maybe_append_schema_documentation_message/1)
+    maybe_append_schema_documentation_message(%{mentor | initial_prompt: initial_prompt})
   end
 
   @doc """
@@ -191,9 +184,44 @@ defmodule Mentor do
       iex> Mentor.configure_adapter(mentor, new_config)
       %Mentor{config: [model: "gpt-3.5", temperature: 0.7]}
   """
-  @spec configure_adapter(t, adapter_config :: keyword) :: t
+  @spec configure_adapter(t, keyword) :: t
   def configure_adapter(%__MODULE__{} = mentor, config) when is_list(config) do
     %{mentor | config: Keyword.merge(mentor.config || [], config)}
+  end
+
+  @doc """
+  Configures the underlying HTTP client used to make request, with the given options.
+
+  ## Parameters
+
+  - `mentor` - The current `Mentor` struct.
+  - `http_client` - The HTTP client to use underlying, needs to implement the `#{inspect(Adapter)}` behaviour and default to the `Mentor.HTTPClient.Finch`.
+  - `config` - A keyword list of configuration options for the underlying HTTP client.
+
+  ## Returns
+
+  - An updated `Mentor` struct with the chosen HTTP client and its config.
+
+  ## Examples
+
+      iex> mentor = %Mentor{http_client: Mentor.HTTPClient.Finch, http_config: []}
+      iex> config = [request_timeout: 50_000]
+      iex> Mentor.configure_http_client(mentor, MyReqAdapter, config)
+      %Mentor{http_client: MyReqAdapter, http_config: ^config}
+
+      iex> mentor = %Mentor{http_client: Mentor.HTTPClient.Finch, http_config: []}
+      iex> config = [request_timeout: 50_000]
+      iex> Mentor.configure_http_client(mentor, config)
+      %Mentor{http_client: Mentor.HTTPClient.Finch, http_config: ^config}
+
+      iex> mentor = %Mentor{http_client: Mentor.HTTPClient.Finch, http_config: []}
+      iex> Mentor.configure_http_client(mentor, MyReqAdapter)
+      %Mentor{http_client: MyReqAdapter, http_config: []}
+  """
+  @spec configure_http_client(t, http_client :: module, config :: keyword) :: t
+  def configure_http_client(%__MODULE__{} = mentor, client \\ Finch, config \\ [])
+      when is_list(config) do
+    %{mentor | http_config: config, http_client: client}
   end
 
   @doc """
@@ -214,6 +242,7 @@ defmodule Mentor do
       iex> Mentor.define_max_retries(mentor, 5)
       %Mentor{max_retries: 5}
   """
+  @spec define_max_retries(t, integer) :: t
   def define_max_retries(%__MODULE__{} = mentor, max) when is_integer(max) do
     %{mentor | max_retries: max}
   end
@@ -239,6 +268,7 @@ defmodule Mentor do
       iex> Mentor.append_message(mentor, message)
       %Mentor{messages: [%{role: "user", content: "Hello, assistant!"}]}
   """
+  @spec append_message(t, map) :: t
   def append_message(%__MODULE__{} = mentor, %{} = message) do
     # yeah, prepending but on `complete/1` we'll reverse the history
     %{mentor | messages: [message | mentor.messages]}
@@ -271,19 +301,32 @@ defmodule Mentor do
       when not is_nil(mentor.__schema__) and not is_nil(mentor.adapter) and is_list(mentor.config) do
     mentor = prepare_prompt(mentor)
 
-    with {:ok, resp} <- adapter.complete(mentor) do
+    with :ok <- validate_http_client(mentor),
+         {:ok, resp} <- adapter.complete(mentor) do
       consume_response(mentor, resp)
     end
   end
 
   @doc "Same as `complete/1` but it raises an exception if it fails"
-  def complete!(%__MODULE__{adapter: adapter} = mentor)
+  def complete!(%__MODULE__{adapter: adapter, http_client: client} = mentor)
       when not is_nil(mentor.__schema__) and not is_nil(mentor.adapter) and is_list(mentor.config) do
+    if not Mentor.HTTPClient.Adapter.impl_by?(client) do
+      raise "#{inspect(client)} doesn't implement the #{inspect(Mentor.HTTPClient.Adapter)} behaviour"
+    end
+
     mentor
     |> prepare_prompt()
     |> adapter.complete!()
     |> then(&consume_response(mentor, &1))
     |> then(fn {:ok, data} -> data end)
+  end
+
+  defp validate_http_client(%__MODULE__{http_client: client}) do
+    if Mentor.HTTPClient.Adapter.impl_by?(client) do
+      :ok
+    else
+      {:error, :configured_http_client_not_supported}
+    end
   end
 
   defp prepare_prompt(%__MODULE__{} = mentor) do

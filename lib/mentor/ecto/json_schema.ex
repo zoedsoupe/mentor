@@ -57,20 +57,21 @@ defmodule Mentor.Ecto.JSONSchema do
     seen_schemas = MapSet.put(seen_schemas, ecto_schema)
 
     properties =
-      ecto_schema.__schema__(:fields)
-      |> Enum.map(fn field ->
+      :fields
+      |> ecto_schema.__schema__()
+      |> Map.new(fn field ->
         type = ecto_schema.__schema__(:type, field)
         value = for_type(type)
 
         {field, value}
       end)
-      |> Enum.into(%{})
 
     associations =
-      ecto_schema.__schema__(:associations)
+      :associations
+      |> ecto_schema.__schema__()
       |> Enum.map(&ecto_schema.__schema__(:association, &1))
       |> Enum.filter(&(&1.relationship != :parent))
-      |> Enum.map(fn association ->
+      |> Map.new(fn association ->
         field = association.field
         title = title_for(association.related)
 
@@ -86,19 +87,20 @@ defmodule Mentor.Ecto.JSONSchema do
 
         {field, value}
       end)
-      |> Enum.into(%{})
 
     properties = Map.merge(properties, associations)
-    required = Map.keys(properties) |> Enum.sort()
+    required = properties |> Map.keys() |> Enum.sort()
     title = title_for(ecto_schema)
 
     associated_schemas =
-      ecto_schema.__schema__(:associations)
+      :associations
+      |> ecto_schema.__schema__()
       |> Enum.map(&ecto_schema.__schema__(:association, &1).related)
       |> Enum.filter(&(!MapSet.member?(seen_schemas, &1)))
 
     embedded_schemas =
-      ecto_schema.__schema__(:embeds)
+      :embeds
+      |> ecto_schema.__schema__()
       |> Enum.map(&ecto_schema.__schema__(:embed, &1).related)
       |> Enum.filter(&(!MapSet.member?(seen_schemas, &1)))
 
@@ -120,14 +122,13 @@ defmodule Mentor.Ecto.JSONSchema do
     [schema | bfs_from_ecto_schema(rest, seen_schemas)]
   end
 
-  defp bfs_from_ecto_schema([ecto_types | rest], seen_schemas)
-       when is_ecto_types(ecto_types) do
+  defp bfs_from_ecto_schema([ecto_types | rest], seen_schemas) when is_ecto_types(ecto_types) do
     properties =
       for {field, type} <- ecto_types, into: %{} do
         {field, for_type(type)}
       end
 
-    required = Map.keys(properties) |> Enum.sort()
+    required = properties |> Map.keys() |> Enum.sort()
 
     embedded_schemas =
       for {_field, {:parameterized, {Ecto.Embedded, %{related: related}}}} <-
@@ -155,20 +156,18 @@ defmodule Mentor.Ecto.JSONSchema do
   end
 
   defp title_for(ecto_schema) when is_ecto_schema(ecto_schema) do
-    to_string(ecto_schema) |> String.split(".") |> List.last()
+    ecto_schema |> to_string() |> String.split(".") |> List.last()
   end
 
   # Find all values in a map or list that match a predicate
   defp find_all_values(map, pred) when is_map(map) do
-    map
-    |> Enum.flat_map(fn
+    Enum.flat_map(map, fn
       {key, val} -> if pred.({key, val}), do: [val], else: find_all_values(val, pred)
     end)
   end
 
   defp find_all_values(list, pred) when is_list(list) do
-    list
-    |> Enum.flat_map(fn
+    Enum.flat_map(list, fn
       val ->
         find_all_values(val, pred)
     end)
@@ -184,15 +183,13 @@ defmodule Mentor.Ecto.JSONSchema do
   defp for_type(:string), do: %{type: "string"}
   defp for_type({:array, type}), do: %{type: "array", items: for_type(type)}
 
-  defp for_type({:map, type}),
-    do: %{type: "object", additionalProperties: for_type(type)}
+  defp for_type({:map, type}), do: %{type: "object", additionalProperties: for_type(type)}
 
   defp for_type(:decimal), do: %{type: "number"}
   defp for_type(:date), do: %{type: "string"}
   defp for_type(:time), do: %{type: "string"}
 
-  defp for_type(:time_usec),
-    do: %{type: "string"}
+  defp for_type(:time_usec), do: %{type: "string"}
 
   defp for_type(:naive_datetime), do: %{type: "string"}
   defp for_type(:naive_datetime_usec), do: %{type: "string"}
@@ -216,7 +213,7 @@ defmodule Mentor.Ecto.JSONSchema do
         {field, for_type(type)}
       end
 
-    required = Map.keys(properties) |> Enum.sort()
+    required = properties |> Map.keys() |> Enum.sort()
 
     %{
       items: %{
@@ -240,7 +237,7 @@ defmodule Mentor.Ecto.JSONSchema do
         {field, for_type(type)}
       end
 
-    required = Map.keys(properties) |> Enum.sort()
+    required = properties |> Map.keys() |> Enum.sort()
 
     %{
       type: "object",

@@ -22,12 +22,12 @@ defmodule Mentor.Ecto.Error do
   end
 
   defp format_errors(%{} = errors, path) do
-    errors
-    |> Enum.map_join("\n", fn {key, value} -> format_errors(value, path ++ [key]) end)
+    Enum.map_join(errors, "\n", fn {key, value} -> format_errors(value, path ++ [key]) end)
   end
 
   defp format_errors([%{} = map | tail], path) do
-    Enum.with_index([map | tail])
+    [map | tail]
+    |> Enum.with_index()
     |> Enum.map_join("\n", fn {element, index} -> format_errors(element, path ++ [index]) end)
   end
 
