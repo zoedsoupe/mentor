@@ -56,9 +56,17 @@ defmodule Mentor.Ecto.JSONSchema do
        when is_ecto_schema(ecto_schema) do
     seen_schemas = MapSet.put(seen_schemas, ecto_schema)
 
+    ignored =
+      if function_exported?(ecto_schema, :__mentor_ignored_fields__, 0) do
+        ecto_schema.__mentor_ignored_fields__()
+      else
+        []
+      end
+
     properties =
       :fields
       |> ecto_schema.__schema__()
+      |> Enum.reject(&(&1 in ignored))
       |> Map.new(fn field ->
         type = ecto_schema.__schema__(:type, field)
         value = for_type(type)

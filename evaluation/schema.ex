@@ -4,14 +4,21 @@ defmodule Schema do
   # @moduledoc since: "v1.0.0"
 
   use Ecto.Schema
-  use Mentor.Ecto.Schema
+  use Mentor.Ecto.Schema, ignored_fields: [:timestamps, :context]
 
   import Ecto.Changeset
+
+  @timestamps_opts [inserted_at: :created_at]
 
   @primary_key false
   embedded_schema do
     field :name, :string
     field :age, :integer
+
+    field :context, :map, default: %{}
+
+    # that doesn't works :/
+    # timestamps(inserted_at: :created_at)
   end
 
   @impl true

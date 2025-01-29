@@ -1,7 +1,7 @@
 defmodule Mentor.MixProject do
   use Mix.Project
 
-  @version "0.2.0"
+  @version "0.2.1"
   @source_url "https://github.com/zoedsoupe/mentor"
 
   def project do
@@ -20,7 +20,7 @@ defmodule Mentor.MixProject do
     ]
   end
 
-  defp elixirc_paths(:dev), do: ["lib", "evaluation"]
+  defp elixirc_paths(:dev), do: ["lib", "evaluation/"]
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 

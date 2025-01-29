@@ -53,6 +53,45 @@ defmodule Mentor.Ecto.Schema do
         - `age`: it should be a reasonable age number for a human being
         \"""
       end
+
+  ## Ignored fields
+
+  Sometimes you wanna use an Ecto schema field only for internal logic or even have different changesets functions that can cast on different set of fields and for so you would like to avoid to send these fields to the LLM and avoid the strictness of filling the description for these fields in the `@moduledoc`.
+
+  In this case you can pass an additional option while using this module, called `ignored_fields`, passing a list of atoms with the fields names to be ignored, for instance:
+
+      defmodule MyApp.Schema do
+        use Ecto.Schema
+        use Mentor.Ecto.Schema, ignored_fields: [:timestamps]
+
+        import Ecto.Changeset
+
+        @timestamps_opts [inserted_at: :created_at]
+
+        @primary_key false
+        embedded_schema do
+          field :name, :string
+          field :age, :integer
+
+          timestamps()
+        end
+
+        @impl true
+        def changeset(%__MODULE__{} = source, %{} = attrs) do
+          source
+          |> cast(attrs, [:name, :age])
+          |> validate_required([:name, :age])
+          |> validate_number(:age, less_than: 100, greater_than: 0)
+        end
+      end
+
+  One so common use case for this option, as can be seen on the aboce example are the timestamps fields that Ecto generate, so for this special case you can inform `:timestamps` as an ignored field to ignore both `[:inserted_at, :updated_at]`, even if you define custom aliases for it with the `@timestamps_opts` attribute, like `:created_at`.
+
+  You can also pass partial timestamps fields to be ignored, like only ignore `:created_at` or `:updated_at`.
+
+  > ### Warning {: .warning}
+  >
+  > Defining timestamps aliases with the macro `timestamps/1` inside the schema itself, aren't supported, since i didn't discover how to get this data from on compile time to filter as ignored fields, sou you can either define these options as the attribute as said above, or pass the individual aliases names into the `ignored_fields` options.
   """
 
   @behaviour Mentor.Schema
@@ -64,11 +103,16 @@ defmodule Mentor.Ecto.Schema do
 
   @optional_callbacks llm_description: 0
 
-  defmacro __using__(_opts) do
+  defmacro __using__(opts \\ []) do
+    ignored = opts[:ignored_fields] || []
+
     quote do
       @before_compile Mentor.Ecto.Schema
       @after_compile Mentor.Ecto.Schema
       @behaviour Mentor.Ecto.Schema
+
+      @doc false
+      def __mentor_ignored_fields__, do: unquote(ignored)
     end
   end
 
@@ -77,12 +121,17 @@ defmodule Mentor.Ecto.Schema do
     schema = definition(mod)
     custom? = function_exported?(mod, :llm_description, 0)
 
+    ignored =
+      mod.__mentor_ignored_fields__()
+      |> then(&maybe_ignore_timestamps(mod, &1))
+      |> Enum.filter(&Function.identity/1)
+
     doc =
       if custom?,
         do: mod.llm_description(),
         else: mod.__mentor_schema_documentation__()
 
-    keys = Enum.map(schema, &elem(&1, 0))
+    keys = Enum.map(schema, &elem(&1, 0)) |> Enum.reject(&(&1 in ignored))
     parse_llm_description!(doc, keys, env)
     if String.length(doc) < 1, do: missing_documentation!(env, keys)
   end
@@ -98,6 +147,31 @@ defmodule Mentor.Ecto.Schema do
       @doc false
       @spec __mentor_schema_documentation__ :: String.t()
       def __mentor_schema_documentation__, do: unquote(doc)
+    end
+  end
+
+  defp maybe_ignore_timestamps(mod, ignored) do
+    timestamps_opts =
+      mod
+      |> Module.get_attribute(:timestamps_opts)
+      |> then(fn opts -> if opts == [], do: nil, else: opts end)
+
+    cond do
+      is_nil(timestamps_opts) and :timestamps in ignored ->
+        ignored ++ [:inserted_at, :updated_at]
+
+      not is_nil(timestamps_opts) and :timestamps in ignored ->
+        [
+          Keyword.get_lazy(timestamps_opts, :inserted_at, fn -> :inserted_at end),
+          Keyword.get_lazy(timestamps_opts, :updated_at, fn -> :updated_at end)
+          | ignored
+        ]
+
+      not is_nil(timestamps_opts) ->
+        [timestamps_opts[:inserted_at], timestamps_opts[:inserted_at] | ignored]
+
+      true ->
+        ignored
     end
   end
 
