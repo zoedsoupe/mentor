@@ -16,14 +16,14 @@
       beam = packagesWith erlang_27;
 
       elixir_1_18 = beam.elixir.override {
-        version = "1.18.1";
+        version = "1.18.3";
         minimumOTPVersion = "27";
 
         src = pkgs.fetchFromGitHub {
           owner = "elixir-lang";
           repo = "elixir";
-          rev = "v1.18.1";
-          sha256 = "sha256-zJNAoyqSj/KdJ1Cqau90QCJihjwHA+HO7nnD1Ugd768=";
+          rev = "v1.18.3";
+          sha256 = "sha256-jH+1+IBWHSTyqakGClkP1Q4O2FWbHx7kd7zn6YGCog0=";
         };
       };
     in {
