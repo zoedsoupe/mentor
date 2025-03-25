@@ -11,6 +11,30 @@ defmodule Mentor do
   > #### Note {: .warning}
   >
   > For now, until `v0.1.0` only `Ecto` shemas are supported.
+
+  ## Backoff calculation
+
+  If a structured output request fails, `mentor` support retries, defaulting to a max number of 3 retries, that can be overwritten.
+
+  `mentor` also applies by default, an exponential backoff while to execute the next retry attempt, the backoff calculation, that formula is used:
+
+  ```
+  min(max_backoff, (base_backoff * 2) ^ retry_count)
+  ```
+
+  Example:
+
+  | Attempt | Base Backoff | Max Backoff | Sleep time |
+  |---------|--------------|-------------|----------------|
+  | 1       | 10           | 30000       | 20 |
+  | 2       | 10           | 30000       | 400 |
+  | 3       | 10           | 30000       | 8000 |
+  | 4       | 10           | 30000       | 30000 |
+  | 5       | 10           | 30000       | 30000 |
+
+  > considering the default values for `base_backoff` (1s) and `max_backoff` (5s)
+
+  Those backoff values can be overwritten by using `configure_backoff/2` function.
   """
 
   alias Mentor.Ecto, as: MentorEcto
@@ -34,6 +58,9 @@ defmodule Mentor do
   - `:max_retries` - The maximum number of retries allowed for validation failures.
   - `:debug` - A boolean flag indicating whether debugging is enabled.
   - `:http_client` - The HTTP Client that implements the `Mentor.HTTPClient.Adapter` behaviour to be used to dispatch HTTP requests to the LLM adapter.
+  - `:timeout` - Configures how the timeout backoff should be applied on retries. Check [Backoff calculation to understand it better](#backoff-calculation)
+    - `:max_backoff` - The maximum backoff value in ms, default: `5s`.
+    - `:base_backoff` - The base backoff value in ms, default: `1s`.
   """
   @type t :: %__MODULE__{
           __schema__: Mentor.Schema.t() | nil,
@@ -45,7 +72,8 @@ defmodule Mentor do
           max_retries: integer,
           debug: boolean,
           http_client: module,
-          http_config: keyword
+          http_config: keyword,
+          timeout: list({:max_backoff, non_neg_integer} | {:base_backoff, non_neg_integer})
         }
 
   defstruct [
@@ -58,7 +86,11 @@ defmodule Mentor do
     max_retries: 3,
     messages: [],
     config: [],
-    http_config: []
+    http_config: [],
+    timeout: [
+      max_backoff: to_timeout(second: 5),
+      base_backoff: to_timeout(second: 1)
+    ]
   ]
 
   defguard is_llm_adapter(llm) when llm in [OpenAI] or is_atom(llm)
@@ -187,6 +219,34 @@ defmodule Mentor do
   @spec configure_adapter(t, keyword) :: t
   def configure_adapter(%__MODULE__{} = mentor, config) when is_list(config) do
     %{mentor | config: Keyword.merge(mentor.config || [], config)}
+  end
+
+  @doc """
+  Configures the exponential backoff values to be used on retry attempts in case of failed requests.
+
+  ## Parameters
+
+  - `mentor` - The current `Mentor` struct.
+  - `config` - A keyword list of configuration options for the backoff.
+    - `:max_backoff` - the max value of the backoff can wait in ms, defaults to 5s
+    - `:base_backoff` - the base value of the backoff can wait in ms, default to 1s
+
+  ## Returns
+
+  - An updated `Mentor` struct with the merged bacoff configuration.
+
+  ## Examples
+
+      iex> mentor = %Mentor{config: [model: "gpt-3.5"]}
+      iex> backoff = [max_backoff: to_timeout(second: 10)]
+      iex> Mentor.configure_backoff(mentor, backoff)
+      %Mentor{config: [model: "gpt-3.5"], timeout: [max_backoff: 10_000, base_backoff: 1_000]}
+  """
+  @spec configure_backoff(t, keyword) :: t
+  def configure_backoff(%__MODULE__{} = mentor, config) when is_list(config) do
+    max_backoff = config[:max_backoff] || to_timeout(second: 5)
+    base_backoff = config[:base_backoff] || to_timeout(second: 1)
+    %{mentor | timeout: [max_backoff: max_backoff, base_backoff: base_backoff]}
   end
 
   @doc """
@@ -359,8 +419,20 @@ defmodule Mentor do
         #{formatted_errors}
         """
       })
-      |> then(&%{&1 | max_retries: max - 1})
+      |> then(&%{&1 | max_retries: max(0, max - 1)})
+      |> then(fn %{timeout: timeout, max_retries: max} = mentor ->
+        backoff = calculate_backoff(max, timeout)
+        Process.sleep(backoff)
+        mentor
+      end)
       |> complete()
     end
+  end
+
+  defp calculate_backoff(attempt, timeout) do
+    max_backoff = timeout[:max_backoff]
+    base_backoff = timeout[:base_backoff]
+
+    min(max_backoff, (base_backoff * 2) ** attempt)
   end
 end

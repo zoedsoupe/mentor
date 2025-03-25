@@ -16,7 +16,9 @@ defmodule MentorTest do
      mentor:
        Mentor.start_chat_with!(OpenAI, schema: Schema)
        |> Mentor.configure_adapter(api_key: "hehe", model: "gpt-4o-mini")
-       |> Mentor.configure_http_client(@mock)}
+       |> Mentor.configure_http_client(@mock)
+       |> Mentor.define_max_retries(0)
+       |> Mentor.configure_backoff(max_backoff: 1, base_backoff: 1)}
   end
 
   test "start_chat_with!/2 initializes Mentor struct correctly" do
