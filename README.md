@@ -25,12 +25,12 @@ end
 ```
 
 ## Usage
- 
+
 The `mentor` library is useful for coaxing an LLM to return JSON that maps to a schema that you provide, rather than the default unstructured text output. If you define your own validation logic, `mentor` can automatically retry prompts when validation fails (returning natural language error messages to the LLM, to guide it when making corrections).
 
 `mentor` is designed to be used with a variaty of LLM providers like [OpenAI API](https://platform.openai.com/docs/api-reference/chat-completions/create), [llama.cpp](https://github.com/ggerganov/llama.cpp), [Bumblebee](https://github.com/elixir-nx/bumblebee) and so on (check the [LLM.Adapters](#llm-adapters) section) by using an extendable adapter behavior.
 
-At its simplest, usage with `Ecto` is pretty straightforward: 
+At its simplest, usage with `Ecto` is pretty straightforward:
 
 1. Create an `Ecto` schema, with a native `@moduledoc` string that explains the schema definition to the LLM or define a `llm_description/0` callback to return it.
 2. Use the `Mentor.Ecto.Schema` macro to validate and fetch the documentation prompt and enforce callbacks.
@@ -109,7 +109,7 @@ Mentor.start_chat_with!(Mentor.LLM.Adapters.OpenAI,
   schema: MySchema
 )
 |> Mentor.configure_adapter(
-  api_key: System.fetch_env!("OPENAI_API_KEY"), 
+  api_key: System.fetch_env!("OPENAI_API_KEY"),
   model: "gpt-4o"
 )
 |> Mentor.complete()
@@ -122,7 +122,7 @@ Mentor.start_chat_with!(Mentor.LLM.Adapters.Gemini,
   schema: MySchema
 )
 |> Mentor.configure_adapter(
-  api_key: System.fetch_env!("GEMINI_API_KEY"), 
+  api_key: System.fetch_env!("GEMINI_API_KEY"),
   model: "gemini-2.0-pro"
 )
 |> Mentor.complete()
@@ -133,7 +133,7 @@ Mentor.start_chat_with!(Mentor.LLM.Adapters.Gemini,
 - [OpenAI structured outputs docs](https://platform.openai.com/docs/guides/structured-outputs)
 - [OpenAI input formatting cookbook](https://cookbook.openai.com/examples/how_to_format_inputs_to_chatgpt_models)
 - [Anthropic Message format](https://docs.anthropic.com/en/api/messages#body-messages)
-- [Google Gemini structured outputs docs](https://ai.google.dev/gemini-api/docs/structured-outputs)
+- [Google Gemini structured outputs docs](https://ai.google.dev/gemini-api/docs/structured-output?lang=rest)
 
 ## Spiritual inspirations
 - [instructor_ex](https://hexdocs.pm/instructor)

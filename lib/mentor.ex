@@ -40,8 +40,8 @@ defmodule Mentor do
   alias Mentor.Ecto, as: MentorEcto
   alias Mentor.HTTPClient.Finch
   alias Mentor.LLM.Adapter
-  alias Mentor.LLM.Adapters.OpenAI
   alias Mentor.LLM.Adapters.Gemini
+  alias Mentor.LLM.Adapters.OpenAI
 
   @type message :: %{role: String.t(), content: term}
 
