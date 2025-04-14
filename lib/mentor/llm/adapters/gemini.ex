@@ -129,7 +129,6 @@ defmodule Mentor.LLM.Adapters.Gemini do
     with {:ok, config} <- NimbleOptions.validate(config, @options),
          {:ok, resp} <- make_gemini_request(mentor, config) do
       if resp.status == 200 do
-        dbg(resp)
         JSON.decode!(resp.body)
         |> parse_response_body(mentor.__schema__)
       else
@@ -142,7 +141,7 @@ defmodule Mentor.LLM.Adapters.Gemini do
     body = make_gemini_body(mentor, config)
     model = config[:model]
     url = "#{config[:url]}/#{model}:generateContent?key=#{config[:api_key]}"
-    dbg(body)
+
     headers = [
       {"content-type", "application/json"},
       {"accept", "application/json"}
@@ -155,7 +154,6 @@ defmodule Mentor.LLM.Adapters.Gemini do
     # Special handling for Gemini's message formatting
     contents = prepare_gemini_contents(mentor.messages)
     schema_without_additional_props = Map.delete(mentor.json_schema, :additionalProperties)
-    dbg(schema_without_additional_props)
 
     %{
       contents: contents,
@@ -209,13 +207,14 @@ defmodule Mentor.LLM.Adapters.Gemini do
     system_part = %{text: system_content}
 
     # Add system content as first text part, then all user content parts
-    user_parts = if is_list(user_content) do
-      # User content is already a list of parts (multimodal)
-      convert_message_content(user_content)
-    else
-      # User content is just text
-      [%{text: user_content}]
-    end
+    user_parts =
+      if is_list(user_content) do
+        # User content is already a list of parts (multimodal)
+        convert_message_content(user_content)
+      else
+        # User content is just text
+        [%{text: user_content}]
+      end
 
     # Check if the first user part is text that we can merge with system content
     case user_parts do
@@ -269,6 +268,7 @@ defmodule Mentor.LLM.Adapters.Gemini do
     case String.split(rest, ";base64,", parts: 2) do
       [mime_type, base64_data] ->
         %{inline_data: %{data: base64_data, mime_type: mime_type}}
+
       _ ->
         %{text: "Invalid base64 image data"}
     end
@@ -298,154 +298,44 @@ defmodule Mentor.LLM.Adapters.Gemini do
       ".gif" -> "image/gif"
       ".webp" -> "image/webp"
       ".svg" -> "image/svg+xml"
-      _ -> "image/jpeg" # Default assumption
+      # Default assumption
+      _ -> "image/jpeg"
     end
   end
 
   # Convert OpenAI roles to Gemini roles
   defp convert_role("user"), do: "user"
   defp convert_role("assistant"), do: "model"
-  defp convert_role("system"), do: "user" # Gemini doesn't have system role, using user instead
+  # Gemini doesn't have system role, using user instead
+  defp convert_role("system"), do: "user"
 
-  # Parse Gemini response body and extract structured data based on schema
-  defp parse_response_body(%{"candidates" => [%{"content" => %{"parts" => [%{"text" => content} | _]}} | _]}, schema) do
-    # Parse the content into a structured map based on the schema
-    case extract_structured_data(content, schema) do
-      {:ok, result} -> {:ok, result}
-      {:error, reason} -> {:error, "Failed to parse Gemini response: #{reason}"}
+  # Parse Gemini response body and extract JSON content
+  defp parse_response_body(
+         %{"candidates" => [%{"content" => %{"parts" => [%{"text" => content} | _]}} | _]},
+         _schema
+       ) do
+    # Simply parse the JSON content directly
+    case JSON.decode(content) do
+      {:ok, parsed} when is_map(parsed) ->
+        {:ok, parsed}
+
+      {:error, _} ->
+        # If direct parsing fails, try to extract a JSON object from the text
+        case Regex.run(~r/\{.+\}/s, content) do
+          [json] ->
+            case JSON.decode(json) do
+              {:ok, parsed} when is_map(parsed) -> {:ok, parsed}
+              {:error, reason} -> {:error, "Failed to parse extracted JSON: #{reason}"}
+            end
+
+          _ ->
+            {:error, "Failed to extract JSON from Gemini response"}
+        end
     end
   end
 
   defp parse_response_body(response, _schema) do
     # Fallback for unexpected response structure
     {:error, "Invalid response format from Gemini API: #{inspect(response)}"}
-  end
-
-  # Main function to extract structured data based on schema
-  defp extract_structured_data(content, schema) do
-    # First try to parse as regular JSON
-    case JSON.decode(content) do
-      {:ok, parsed} when is_map(parsed) ->
-        {:ok, parsed}
-
-      {:error, _} ->
-        # Try to extract a JSON object from the text
-        clean_content = extract_json_from_text(content)
-
-        case JSON.decode(clean_content) do
-          {:ok, parsed} when is_map(parsed) ->
-            {:ok, parsed}
-
-          {:error, _} ->
-            # Extract schema field information
-            field_info = [
-              {"description", :string},
-              {"pix_key", :string},
-              {"amount", :number}
-            ]
-
-            # Extract data based on field information
-            result = extract_fields_from_text(content, field_info)
-
-            if map_size(result) > 0 do
-              # We found at least one field
-              {:ok, result}
-            else
-              # Create a minimal response with just a description
-              {:ok, %{"description" => String.trim(content)}}
-            end
-        end
-    end
-  end
-
-  # Try to extract a JSON object from text
-  defp extract_json_from_text(content) do
-    # Look for JSON-like content enclosed in curly braces
-    case Regex.run(~r/\{.+\}/s, content) do
-      [json] -> json
-      _ -> content
-    end
-  end
-
-  # Extract fields from text based on field information
-  defp extract_fields_from_text(content, field_info) do
-    field_info
-    |> Enum.reduce(%{}, fn {field_name, field_type}, result ->
-      case extract_field_value(content, field_name, field_type) do
-        {:ok, value} -> Map.put(result, field_name, value)
-        :error -> result
-      end
-    end)
-  end
-
-  # Extract field value from text based on field type
-  defp extract_field_value(content, field_name, :string) do
-    # Various patterns to match string values
-    json_pattern = ~r/"#{field_name}"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/
-    json_pattern2 = ~r/"#{field_name}"\s*:\s*"(.*?)"/s
-    label_pattern = ~r/#{field_name}\s*[:=]\s*["']([^"']+)["']/i
-    unquoted_pattern = ~r/#{field_name}\s*[:=]\s*([^,\n}"']+)/i
-
-    cond do
-      result = Regex.run(json_pattern, content) ->
-        [_, value] = result
-        {:ok, String.trim(value)}
-
-      result = Regex.run(json_pattern2, content) ->
-        [_, value] = result
-        {:ok, String.trim(value)}
-
-      result = Regex.run(label_pattern, content) ->
-        [_, value] = result
-        {:ok, String.trim(value)}
-
-      result = Regex.run(unquoted_pattern, content) ->
-        [_, value] = result
-        {:ok, String.trim(value)}
-
-      true -> :error
-    end
-  end
-
-  defp extract_field_value(content, field_name, :number) do
-    # Patterns for number fields
-    json_pattern = ~r/"#{field_name}"\s*:\s*(-?\d+\.?\d*)/
-    label_pattern = ~r/#{field_name}\s*[:=]\s*(-?\d+\.?\d*)/i
-
-    cond do
-      result = Regex.run(json_pattern, content) ->
-        [_, value] = result
-        case Float.parse(value) do
-          {num, _} -> {:ok, num}
-          :error -> :error
-        end
-
-      result = Regex.run(label_pattern, content) ->
-        [_, value] = result
-        case Float.parse(value) do
-          {num, _} -> {:ok, num}
-          :error -> :error
-        end
-
-      true -> :error
-    end
-  end
-
-  defp extract_field_value(content, field_name, :boolean) do
-    # Patterns for boolean fields
-    json_pattern = ~r/"#{field_name}"\s*:\s*(true|false)/i
-    label_pattern = ~r/#{field_name}\s*[:=]\s*(true|false)/i
-
-    cond do
-      result = Regex.run(json_pattern, content) ->
-        [_, value] = result
-        {:ok, String.downcase(value) == "true"}
-
-      result = Regex.run(label_pattern, content) ->
-        [_, value] = result
-        {:ok, String.downcase(value) == "true"}
-
-      true -> :error
-    end
   end
 end
