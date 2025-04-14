@@ -98,11 +98,42 @@ Hello I am a Nigerian prince and I would like to send you money
 
 Check out our [Quickstart Guide](https://hexdocs.pm/mentor/quickstart.html) for more code snippets that you can run locally (in Livebook). Or, to get a better idea of the thinking behind Instructor, read more about our [Philosophy & Motivations](https://hexdocs.pm/mentor/philosophy.html).
 
+## LLM Adapters
+
+`mentor` supports multiple LLM providers through adapters. Currently implemented adapters:
+
+### OpenAI
+
+```elixir
+Mentor.start_chat_with!(Mentor.LLM.Adapters.OpenAI,
+  schema: MySchema
+)
+|> Mentor.configure_adapter(
+  api_key: System.fetch_env!("OPENAI_API_KEY"), 
+  model: "gpt-4o"
+)
+|> Mentor.complete()
+```
+
+### Google Gemini
+
+```elixir
+Mentor.start_chat_with!(Mentor.LLM.Adapters.Gemini,
+  schema: MySchema
+)
+|> Mentor.configure_adapter(
+  api_key: System.fetch_env!("GEMINI_API_KEY"), 
+  model: "gemini-2.0-pro"
+)
+|> Mentor.complete()
+```
+
 ## References
 - [OpenAI text generation docs](https://platform.openai.com/docs/guides/text-generation)
 - [OpenAI structured outputs docs](https://platform.openai.com/docs/guides/structured-outputs)
 - [OpenAI input formatting cookbook](https://cookbook.openai.com/examples/how_to_format_inputs_to_chatgpt_models)
 - [Anthropic Message format](https://docs.anthropic.com/en/api/messages#body-messages)
+- [Google Gemini structured outputs docs](https://ai.google.dev/gemini-api/docs/structured-outputs)
 
 ## Spiritual inspirations
 - [instructor_ex](https://hexdocs.pm/instructor)

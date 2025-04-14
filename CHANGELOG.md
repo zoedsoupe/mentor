@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Added Google Gemini adapter for structured output support
+- Added schema conversion from JSON Schema to Gemini response schema format
+- Added multimodal (image) input support for Gemini adapter
+- Added vision example livebook showcasing image analysis capabilities
+- Updated documentation with Gemini adapter examples
+
+## [0.2.2] - 2025-04-14
+
+### Changes
+- Minor bug fixes and improvements
+
+## [0.2.1] - 2025-02-15
+
+### Fixed
+- Fixed minor bugs in OpenAI adapter
+- Improved error handling
+
 ## [0.2.0] - 2025-01-28
 
 ### Added
