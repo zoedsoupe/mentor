@@ -3,9 +3,6 @@ defmodule Mentor.LLM.Adapters.Gemini do
 
   @known_models ~w[gemini-2.0-pro gemini-2.0-pro-latest gemini-2.0-pro-vision gemini-2.0-flash gemini-2.0-flash-lite gemini-2.0-flash-latest gemini-2.0-flash-vision gemini-1.5-pro gemini-1.5-pro-latest gemini-1.5-flash]
 
-  # Example base64 image used in documentation
-  @doc_b64_image "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-
   @options NimbleOptions.new!(
              url: [
                type: :string,
@@ -62,44 +59,15 @@ defmodule Mentor.LLM.Adapters.Gemini do
 
   ## Multimodal Support
 
-  The adapter supports multimodal inputs like images. You can use various image format input styles:
-
-  ### Using Base64 Data URLs (OpenAI style):
-
-      # Using the sample base64 image (1x1 transparent pixel)
-      b64_encoded_image = @doc_b64_image
+  The adapter supports multimodal inputs using the Gemini API format directly:
 
       Mentor.append_message(%{
         role: "user",
         content: [
           %{
-            type: "image_url",
-            image_url: %{
-              url: "data:image/jpeg;base64,#{@doc_b64_image}"
-            }
-          }
-        ]
-      })
-
-  ### Using a Direct URL:
-
-      Mentor.append_message(%{
-        role: "user",
-        content: [
-          %{
-            type: "image_url",
-            image_url: %{
-              url: "https://example.com/image.jpg"
-            }
-          }
-        ]
-      })
-
-  ### Gemini Direct Format:
-
-      Mentor.append_message(%{
-        role: "user",
-        content: [
+            type: "text",
+            text: "Extract information from this image."
+          },
           %{
             type: "image_base64",
             data: "base64_encoded_data",
@@ -107,6 +75,9 @@ defmodule Mentor.LLM.Adapters.Gemini do
           }
         ]
       })
+
+  The adapter passes these formats directly to Gemini with minimal transformation, allowing you to
+  use any content format supported by the Gemini API.
 
   ## Considerations
 
@@ -152,7 +123,7 @@ defmodule Mentor.LLM.Adapters.Gemini do
     contents =
       Enum.map(regular_messages, fn message ->
         %{
-          role: convert_role(message.role),
+          role: message.role,
           parts: convert_message_content(message.content)
         }
       end)
@@ -206,59 +177,13 @@ defmodule Mentor.LLM.Adapters.Gemini do
       text when is_binary(text) ->
         %{text: text}
 
-      %{type: "image_url", image_url: %{url: url} = image_url} ->
-        handle_image_url(url, image_url)
-
-      %{type: "image", image: %{} = image} ->
-        image
-
       %{type: "image_base64", data: data, mime_type: mime_type} ->
         %{inline_data: %{data: data, mime_type: mime_type}}
 
       other ->
-        %{text: "Unsupported content type: #{inspect(other)}"}
+        other
     end)
   end
-
-  defp handle_image_url("data:" <> rest = _url, _image_url) do
-    # Handle base64 data URLs
-    case String.split(rest, ";base64,", parts: 2) do
-      [mime_type, base64_data] ->
-        %{inline_data: %{data: base64_data, mime_type: mime_type}}
-
-      _ ->
-        %{text: "Invalid base64 image data"}
-    end
-  end
-
-  defp handle_image_url("http://" <> _rest = url, _image_url) do
-    %{file_data: %{file_uri: url, mime_type: guess_mime_type(url)}}
-  end
-
-  defp handle_image_url("https://" <> _rest = url, _image_url) do
-    %{file_data: %{file_uri: url, mime_type: guess_mime_type(url)}}
-  end
-
-  defp handle_image_url(_url, _image_url) do
-    %{text: "Unsupported image URL format"}
-  end
-
-  defp guess_mime_type(url) do
-    case Path.extname(url) |> String.downcase() do
-      ".jpg" -> "image/jpeg"
-      ".jpeg" -> "image/jpeg"
-      ".png" -> "image/png"
-      ".gif" -> "image/gif"
-      ".webp" -> "image/webp"
-      ".svg" -> "image/svg+xml"
-      # Default assumption
-      _ -> "image/jpeg"
-    end
-  end
-
-  defp convert_role("user"), do: "user"
-  defp convert_role("assistant"), do: "model"
-  defp convert_role("system"), do: "user"
 
   defp parse_response_body(
          %{"candidates" => [%{"content" => %{"parts" => [%{"text" => content} | _]}} | _]},
@@ -274,7 +199,6 @@ defmodule Mentor.LLM.Adapters.Gemini do
   end
 
   defp parse_response_body(response, _schema) do
-    # Fallback for unexpected response structure
     {:error, "Invalid response format from Gemini API: #{inspect(response)}"}
   end
 end

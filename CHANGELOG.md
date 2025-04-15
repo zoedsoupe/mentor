@@ -6,9 +6,6 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - Added Google Gemini adapter for structured output support
-- Added schema conversion from JSON Schema to Gemini response schema format
-- Added multimodal (image) input support for Gemini adapter
-- Updated documentation with Gemini adapter examples
 
 ## [0.2.2] - 2025-04-14
 

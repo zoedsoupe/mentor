@@ -97,22 +97,6 @@ Mentor.start_chat_with!(OpenAI, schema: Politician)
 })
 ```
 
-You can also use the Google Gemini adapter for the same task:
-
-```elixir
-alias Mentor.LLM.Adapters.Gemini
-
-Mentor.start_chat_with!(Gemini, schema: Politician)
-|> Mentor.configure_adapter(
-  model: "gemini-2.0-pro",
-  api_key: System.fetch_env!("LB_GEMINI_API_KEY")
-)
-|> Mentor.append_message(%{
-  role: "user",
-  content: "Who won the Brazilian 2022 election and what offices have they held over their career?"
-})
-```
-
 <!-- livebook:{"output":true} -->
 
 ```
