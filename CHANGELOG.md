@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.3]  - 2025-04-16
+
+### Added
+- Added Google Gemini adapter for structured output support
+
+## [0.2.2] - 2025-04-14
+
+### Changes
+- Minor bug fixes and improvements
+
+## [0.2.1] - 2025-02-15
+
+### Fixed
+- Fixed minor bugs in OpenAI adapter
+- Improved error handling
+
 ## [0.2.0] - 2025-01-28
 
 ### Added

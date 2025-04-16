@@ -40,6 +40,7 @@ defmodule Mentor do
   alias Mentor.Ecto, as: MentorEcto
   alias Mentor.HTTPClient.Finch
   alias Mentor.LLM.Adapter
+  alias Mentor.LLM.Adapters.Gemini
   alias Mentor.LLM.Adapters.OpenAI
 
   @type message :: %{role: String.t(), content: term}
@@ -93,7 +94,7 @@ defmodule Mentor do
     ]
   ]
 
-  defguard is_llm_adapter(llm) when llm in [OpenAI] or is_atom(llm)
+  defguard is_llm_adapter(llm) when llm in [OpenAI, Gemini] or is_atom(llm)
 
   @initial_prompt """
   You are a highly intelligent and skilled assistant. Your task is to analyze and understand the content provided, then generate well-structured outputs that adhere to the constraints and requirements specified in the subsequent instructions. Your responses must be accurate, concise, and match the intended structure or purpose.

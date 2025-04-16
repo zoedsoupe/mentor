@@ -1,7 +1,7 @@
 defmodule Mentor.MixProject do
   use Mix.Project
 
-  @version "0.2.2"
+  @version "0.2.3"
   @source_url "https://github.com/zoedsoupe/mentor"
 
   def project do
@@ -54,7 +54,8 @@ defmodule Mentor.MixProject do
     [
       name: "mentor",
       links: %{"GitHub" => @source_url},
-      licenses: ["MIT"]
+      licenses: ["MIT"],
+      files: ~w[lib mix.exs README.md CHANGELOG.md LICENSE]
     ]
   end
 
