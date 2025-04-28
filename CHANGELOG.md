@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.4]  - 2025-04-28
+
+### Added
+- Added `required_fields` option to `Mentor.Ecto.Schema` (#11)
+
 ## [0.2.3]  - 2025-04-16
 
 ### Added
