@@ -128,14 +128,14 @@ defmodule Mentor.LLM.Adapters.Gemini do
         }
       end)
 
-    schema_without_additional_props = Map.delete(mentor.json_schema, :additionalProperties)
+    updated_schema = update_schema_for_gemini(mentor.json_schema, mentor.config)
 
     body = %{
       contents: contents,
       generationConfig: %{
         temperature: config[:temperature],
         response_mime_type: "application/json",
-        response_schema: schema_without_additional_props
+        response_schema: updated_schema
       }
     }
 
@@ -143,6 +143,15 @@ defmodule Mentor.LLM.Adapters.Gemini do
       Map.put(body, :system_instruction, system_instruction)
     else
       body
+    end
+  end
+
+  defp update_schema_for_gemini(schema, config) do
+    schema_without_additional_props = Map.delete(schema, :additionalProperties)
+
+    case Keyword.get(config, :required_fields) do
+      nil -> schema_without_additional_props
+      required_fields -> %{schema_without_additional_props | required: required_fields}
     end
   end
 
