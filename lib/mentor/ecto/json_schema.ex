@@ -63,13 +63,6 @@ defmodule Mentor.Ecto.JSONSchema do
         []
       end
 
-    required =
-      if function_exported?(ecto_schema, :__mentor_required_fields__, 0) do
-        ecto_schema.__mentor_required_fields__()
-      else
-        []
-      end
-
     properties =
       :fields
       |> ecto_schema.__schema__()
@@ -104,14 +97,7 @@ defmodule Mentor.Ecto.JSONSchema do
       end)
 
     properties = Map.merge(properties, associations)
-
-    required =
-      if required != [] do
-        required
-      else
-        properties |> Map.keys() |> Enum.sort()
-      end
-
+    required = properties |> Map.keys() |> Enum.sort()
     title = title_for(ecto_schema)
 
     associated_schemas =
@@ -150,19 +136,7 @@ defmodule Mentor.Ecto.JSONSchema do
         {field, for_type(type)}
       end
 
-    required =
-      if is_map_key(ecto_types, :__mentor_required_fields__) do
-        ecto_types[:__mentor_required_fields__]
-      else
-        []
-      end
-
-    required =
-      if required != [] do
-        required
-      else
-        properties |> Map.keys() |> Enum.sort()
-      end
+    required = properties |> Map.keys() |> Enum.sort()
 
     embedded_schemas =
       for {_field, {:parameterized, {Ecto.Embedded, %{related: related}}}} <-

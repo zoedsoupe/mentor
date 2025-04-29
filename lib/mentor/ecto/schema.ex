@@ -92,33 +92,6 @@ defmodule Mentor.Ecto.Schema do
   > ### Warning {: .warning}
   >
   > Defining timestamps aliases with the macro `timestamps/1` inside the schema itself, aren't supported, since i didn't discover how to get this data from on compile time to filter as ignored fields, sou you can either define these options as the attribute as said above, or pass the individual aliases names into the `ignored_fields` options.
-
-  ## Required fields
-
-  By default, all fields in the schema are considered required in the generated JSON Schema. If you want to specify only certain fields as required, you can use the `required_fields` option:
-
-      defmodule MyApp.Schema do
-        use Ecto.Schema
-        use Mentor.Ecto.Schema, required_fields: [:description]
-
-        import Ecto.Changeset
-
-        @primary_key false
-        embedded_schema do
-          field :name, :string
-          field :description, :string
-          field :metadata, :map
-        end
-
-        @impl true
-        def changeset(%__MODULE__{} = source, %{} = attrs) do
-          source
-          |> cast(attrs, [:name, :description, :metadata])
-          |> validate_required([:description])
-        end
-      end
-
-  In this example, only the `:description` field will be passed as required in the response_format for the llm.
   """
 
   @behaviour Mentor.Schema
@@ -132,7 +105,6 @@ defmodule Mentor.Ecto.Schema do
 
   defmacro __using__(opts \\ []) do
     ignored = opts[:ignored_fields] || []
-    required = opts[:required_fields] || []
 
     quote do
       @before_compile Mentor.Ecto.Schema
@@ -141,9 +113,6 @@ defmodule Mentor.Ecto.Schema do
 
       @doc false
       def __mentor_ignored_fields__, do: unquote(ignored)
-
-      @doc false
-      def __mentor_required_fields__, do: unquote(required)
     end
   end
 
