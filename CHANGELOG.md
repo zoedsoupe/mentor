@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.5]  - 2025-05-29
+
+### Fixed
+- Moved `required_fields` option to be an adapter specific config (gemini) (#12)
+
 ## [0.2.4]  - 2025-04-28
 
 ### Added
