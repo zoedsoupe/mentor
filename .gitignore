@@ -25,3 +25,5 @@ mentor-*.tar
 /priv/plts/
 
 .env
+
+/.claude/
