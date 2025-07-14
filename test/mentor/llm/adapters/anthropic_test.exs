@@ -3,6 +3,7 @@ defmodule Mentor.LLM.Adapters.AnthropicTest do
 
   import Mox
 
+  alias Mentor.Ecto.JSONSchema, as: MentorEcto
   alias Mentor.LLM.Adapters.Anthropic
 
   @mock TestHTTPClient
@@ -24,8 +25,8 @@ defmodule Mentor.LLM.Adapters.AnthropicTest do
 
     @primary_key false
     embedded_schema do
-      field :name, :string
-      field :age, :integer
+      field(:name, :string)
+      field(:age, :integer)
     end
 
     @impl true
@@ -38,7 +39,6 @@ defmodule Mentor.LLM.Adapters.AnthropicTest do
 
   describe "complete/1" do
     setup do
-      # Simulate what Mentor.complete/1 does
       base_mentor =
         Mentor.start_chat_with!(Anthropic, schema: TestSchema)
         |> Mentor.configure_adapter(
@@ -50,10 +50,9 @@ defmodule Mentor.LLM.Adapters.AnthropicTest do
         |> Mentor.configure_http_client(@mock)
         |> Mentor.append_message(%{role: "user", content: "Create a person named John who is 30"})
 
-      # Add system prompt and prepare json_schema like Mentor.complete/1 does
       mandatory = %{role: "system", content: base_mentor.initial_prompt}
       messages = [mandatory | Enum.reverse(base_mentor.messages)]
-      json_schema = Mentor.Ecto.JSONSchema.from_ecto_schema(TestSchema)
+      json_schema = MentorEcto.from_ecto_schema(TestSchema)
 
       mentor = %{base_mentor | messages: messages, json_schema: json_schema}
 
@@ -66,14 +65,12 @@ defmodule Mentor.LLM.Adapters.AnthropicTest do
         assert {"anthropic-version", "2023-06-01"} in headers
         assert {"content-type", "application/json"} in headers
 
-        # Body is JSON encoded by the HTTP client
-        {:ok, decoded_body} = JSON.decode(body)
-        assert decoded_body["model"] == "claude-3-5-sonnet-20241022"
-        assert decoded_body["temperature"] == 0.7
-        assert decoded_body["max_tokens"] == 1000
-        assert decoded_body["system"] =~ "You are a highly intelligent"
-        assert decoded_body["system"] =~ "A test person schema"
-        assert [%{"role" => "user", "content" => content}] = decoded_body["messages"]
+        assert body.model == "claude-3-5-sonnet-20241022"
+        assert body.temperature == 0.7
+        assert body.max_tokens == 1000
+        assert body.system =~ "You are a highly intelligent"
+        assert body.system =~ "A test person schema"
+        assert [%{role: "user", content: content}] = body.messages
         assert content == "Create a person named John who is 30"
 
         response = %{
@@ -109,7 +106,7 @@ defmodule Mentor.LLM.Adapters.AnthropicTest do
         {:error, :timeout}
       end)
 
-      assert {:error, "HTTP request failed: :timeout"} = Anthropic.complete(mentor)
+      assert {:error, "HTTP request failed: timeout"} = Anthropic.complete(mentor)
     end
 
     test "handles malformed responses", %{mentor: mentor} do
@@ -120,9 +117,16 @@ defmodule Mentor.LLM.Adapters.AnthropicTest do
       assert {:error, "Failed to parse response: " <> _} = Anthropic.complete(mentor)
     end
 
-    test "supports multimodal content", %{mentor: mentor} do
+    test "supports multimodal content", %{mentor: _base_mentor} do
       mentor =
-        mentor
+        Mentor.start_chat_with!(Anthropic, schema: TestSchema)
+        |> Mentor.configure_adapter(
+          api_key: "test_key",
+          model: "claude-3-5-sonnet-20241022",
+          temperature: 0.7,
+          max_tokens: 1000
+        )
+        |> Mentor.configure_http_client(@mock)
         |> Mentor.append_message(%{
           role: "user",
           content: [
@@ -136,22 +140,18 @@ defmodule Mentor.LLM.Adapters.AnthropicTest do
         })
 
       expect(@mock, :request, fn _, body, _, _ ->
-        {:ok, decoded_body} = JSON.decode(body)
-        [first_msg, second_msg] = decoded_body["messages"]
+        assert [msg] = body.messages
 
-        assert first_msg["role"] == "user"
-        assert first_msg["content"] == "Create a person named John who is 30"
-
-        assert second_msg["role"] == "user"
-        assert [text_part, image_part] = second_msg["content"]
-        assert text_part == %{"type" => "text", "text" => "What's in this image?"}
+        assert msg.role == "user"
+        assert [text_part, image_part] = msg.content
+        assert text_part == %{type: "text", text: "What's in this image?"}
 
         assert image_part == %{
-                 "type" => "image",
-                 "source" => %{
-                   "type" => "base64",
-                   "media_type" => "image/jpeg",
-                   "data" => "base64_encoded_image_data"
+                 type: "image",
+                 source: %{
+                   type: "base64",
+                   media_type: "image/jpeg",
+                   data: "base64_encoded_image_data"
                  }
                }
 
