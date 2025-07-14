@@ -8,6 +8,7 @@ defmodule PeriExamples do
   @doc """
   Example with a map schema for product information.
   """
+  @spec run_product_schema() :: {:ok, map()} | {:error, term()}
   def run_product_schema do
     product_schema = %{
       name: {:required, :string},
@@ -33,6 +34,7 @@ defmodule PeriExamples do
   @doc """
   Example with a list schema for generating todo items.
   """
+  @spec run_todo_list() :: {:ok, list(String.t())} | {:error, term()}
   def run_todo_list do
     # Schema for a list of todo items, each with a max length
     todo_schema = {:list, {:string, {:max, 100}}}
@@ -52,6 +54,7 @@ defmodule PeriExamples do
   @doc """
   Example with nested map schema for user profile with address.
   """
+  @spec run_user_profile() :: {:ok, map()} | {:error, term()}
   def run_user_profile do
     user_schema = %{
       username: {:required, {:string, {:regex, ~r/^[a-zA-Z0-9_]+$/}}},
@@ -82,6 +85,7 @@ defmodule PeriExamples do
   @doc """
   Example with tuple schema for coordinates.
   """
+  @spec run_coordinates() :: {:ok, {float(), float()}} | {:error, term()}
   def run_coordinates do
     # Tuple of [latitude, longitude]
     coord_schema = {:tuple, [{:float, {:range, {-90.0, 90.0}}}, {:float, {:range, {-180.0, 180.0}}}]}
@@ -101,6 +105,7 @@ defmodule PeriExamples do
   @doc """
   Example with enum schema for multiple choice.
   """
+  @spec run_sentiment_analysis() :: {:ok, String.t()} | {:error, term()}
   def run_sentiment_analysis do
     sentiment_schema = {:enum, ["positive", "negative", "neutral", "mixed"]}
 
@@ -119,6 +124,7 @@ defmodule PeriExamples do
   @doc """
   Example with complex nested structure for API response.
   """
+  @spec run_api_response() :: {:ok, map()} | {:error, term()}
   def run_api_response do
     api_response_schema = %{
       status: {:required, {:enum, ["success", "error", "pending"]}},
@@ -152,6 +158,7 @@ defmodule PeriExamples do
   @doc """
   Run all examples and display results.
   """
+  @spec run_all() :: :ok
   def run_all do
     examples = [
       {"Product Schema", &run_product_schema/0},

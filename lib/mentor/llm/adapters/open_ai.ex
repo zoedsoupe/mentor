@@ -99,6 +99,8 @@ defmodule Mentor.LLM.Adapters.OpenAI do
   end
 
   defp make_open_ai_body(%Mentor{} = mentor, config) do
+    json_schema = wrap_schema_if_needed(mentor.json_schema)
+
     %{
       messages: mentor.messages,
       model: config[:model],
@@ -107,14 +109,84 @@ defmodule Mentor.LLM.Adapters.OpenAI do
         json_schema: %{
           name: "schema",
           strict: true,
-          schema: mentor.json_schema
+          schema: json_schema
         }
       }
     }
   end
 
+  defp wrap_schema_if_needed(%{"type" => "object"} = schema) do
+    ensure_required_array(schema)
+  end
+
+  defp wrap_schema_if_needed(schema) do
+    %{
+      "type" => "object",
+      "properties" => %{"value" => schema},
+      "required" => ["value"],
+      "additionalProperties" => false
+    }
+  end
+
+  defp ensure_required_array(%{"properties" => properties} = schema) when is_map(properties) do
+    all_keys = Map.keys(properties)
+
+    schema
+    |> Map.put("required", all_keys)
+    |> Map.update("properties", %{}, fn props ->
+      Map.new(props, fn {key, value} ->
+        {key, ensure_nested_required(value)}
+      end)
+    end)
+    |> ensure_additional_properties()
+  end
+
+  defp ensure_required_array(schema), do: schema
+
+  defp ensure_nested_required(%{"type" => "object"} = schema) do
+    ensure_required_array(schema)
+  end
+
+  defp ensure_nested_required(%{"oneOf" => _}) do
+    %{
+      "type" => "object",
+      "additionalProperties" => false
+    }
+  end
+
+  defp ensure_nested_required(%{"type" => "array"} = schema) do
+    if Map.has_key?(schema, "items") do
+      schema
+    else
+      Map.put(schema, "items", %{"type" => "string"})
+    end
+  end
+
+  defp ensure_nested_required(schema), do: schema
+
+  defp ensure_additional_properties(schema) do
+    if Map.get(schema, "type") == "object" and not Map.has_key?(schema, "additionalProperties") do
+      Map.put(schema, "additionalProperties", false)
+    else
+      schema
+    end
+  end
+
   defp parse_response_body(%{"choices" => [message]}) do
     content = get_in(message, ["message", "content"])
-    {:ok, if(content, do: JSON.decode!(content), else: %{})}
+
+    if content do
+      decoded = JSON.decode!(content)
+
+      result =
+        case decoded do
+          %{"value" => value} when map_size(decoded) == 1 -> value
+          other -> other
+        end
+
+      {:ok, result}
+    else
+      {:ok, %{}}
+    end
   end
 end

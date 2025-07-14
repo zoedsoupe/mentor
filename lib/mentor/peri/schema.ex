@@ -9,7 +9,11 @@ if Code.ensure_loaded?(Peri) do
 
     @behaviour Mentor.Schema
 
+    @type peri_schema :: map() | tuple() | atom() | {atom(), term()}
+    @type json_schema :: map()
+
     @impl Mentor.Schema
+    @spec validate(peri_schema(), map()) :: {:ok, term()} | {:error, map()}
     def validate(schema, data) do
       case Peri.validate(schema, data) do
         {:ok, validated_data} ->
@@ -30,10 +34,12 @@ if Code.ensure_loaded?(Peri) do
       [{:value, extract_base_type(schema)}]
     end
 
+    @spec to_json_schema(peri_schema()) :: json_schema()
     def to_json_schema(schema) do
       convert_type_to_json_schema(schema)
     end
 
+    @spec generate_field_descriptions(peri_schema()) :: map()
     def generate_field_descriptions(schema) when is_map(schema) do
       schema
       |> Enum.map(fn {key, type} -> {key, describe_type(type)} end)

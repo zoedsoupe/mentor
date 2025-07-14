@@ -9,10 +9,16 @@
 
 Because we love composability!
 
-No magic, but a higher-level API to generate structed output with LLM, based on a "schema", it can be:
-- a raw map/struct/data structure (string, tuple and so on) (wip)
-- an `Ecto` schema (embedded, database or schemaless changesets)
-- a `peri` schema definition (wip)
+No magic, but a higher-level API to generate structured output with LLM, based on a "schema", it can be:
+- **Ecto schemas** - Database-backed schemas, embedded schemas, and schemaless changesets with full validation support
+- **Peri schemas** - Flexible runtime schemas supporting:
+  - Maps with field validation and constraints
+  - Lists with item type validation
+  - Tuples with fixed element types
+  - Enums for restricted value sets
+  - Primitive types (string, integer, float, boolean, etc.)
+  - Complex nested structures
+  - Custom validation rules
 
 ## Installation
 
@@ -95,6 +101,56 @@ Hello I am a Nigerian prince and I would like to send you money
 """)
 # => {:ok, %SpamPrediction{class: :spam, reason: "Nigerian prince email scam", score: 0.98}}
 ```
+
+### Using Peri Schemas
+
+Peri schemas provide a flexible way to define structured output without the overhead of Ecto schemas:
+
+```elixir
+# Define a Peri schema for product information
+product_schema = %{
+  name: {:required, :string},
+  price: {:required, {:float, {:gt, 0}}},
+  currency: {:required, {:enum, ["USD", "EUR", "GBP"]}},
+  in_stock: :boolean,
+  tags: {:list, :string}
+}
+
+mentor = Mentor.start_chat_with!(
+  Mentor.LLM.Adapters.OpenAI,
+  schema: product_schema
+)
+|> Mentor.configure_adapter(
+  api_key: System.fetch_env!("OPENAI_API_KEY"),
+  model: "gpt-4o-mini"
+)
+|> Mentor.append_message(%{
+  role: "user",
+  content: "Generate product info for a premium mechanical keyboard"
+})
+|> Mentor.complete()
+
+# => {:ok, %{
+#      name: "Premium Mechanical Keyboard",
+#      price: 199.99,
+#      currency: "USD",
+#      in_stock: true,
+#      tags: ["mechanical", "gaming", "RGB"]
+#    }}
+```
+
+Peri schemas support various types and constraints:
+- Basic types: `:string`, `:integer`, `:float`, `:boolean`, `:atom`
+- Date/time types: `:date`, `:time`, `:datetime`, `:naive_datetime`
+- Collections: `{:list, type}`, `{:map, value_type}`, `{:tuple, [types]}`
+- Constraints: `{:required, type}`, `{:enum, values}`, numeric ranges, string patterns
+- Nested objects: Define schemas within schemas for complex structures
+
+> [!NOTE]
+> When using OpenAI's adapter, some schema types are automatically wrapped to comply with their structured output requirements:
+> - Non-object root schemas are wrapped in an object with a "value" field
+> - Array and enum schemas at the root level need this wrapper
+> - The adapter handles unwrapping automatically in the response
 
 Check out our [Quickstart Guide](https://hexdocs.pm/mentor/quickstart.html) for more code snippets that you can run locally (in Livebook). Or, to get a better idea of the thinking behind Instructor, read more about our [Philosophy & Motivations](https://hexdocs.pm/mentor/philosophy.html).
 

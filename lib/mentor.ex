@@ -502,12 +502,16 @@ defmodule Mentor do
     end
   end
 
+  defp format_validation_errors(_schema, %{errors: _} = errors) do
+    format_generic_errors(errors)
+  end
+
   defp format_validation_errors(_schema, errors) do
     format_generic_errors(errors)
   end
 
-  defp format_generic_errors(%{errors: errors}) when is_list(errors) do
-    Enum.map_join(errors, "\n", fn
+  defp format_generic_errors(%{errors: error_list} = _error_map) when is_list(error_list) do
+    Enum.map_join(error_list, "\n", fn
       %{field: field, message: message} -> "#{field}: #{message}"
       %{message: message} -> message
       error when is_binary(error) -> error
@@ -516,7 +520,20 @@ defmodule Mentor do
   end
 
   defp format_generic_errors(errors) when is_list(errors) do
-    Enum.join(errors, "\n")
+    Enum.map_join(errors, "\n", fn
+      error when is_binary(error) ->
+        error
+
+      error when is_map(error) ->
+        case error do
+          %{field: field, message: message} -> "#{field}: #{message}"
+          %{message: message} -> message
+          _ -> inspect(error)
+        end
+
+      error ->
+        inspect(error)
+    end)
   end
 
   defp format_generic_errors(error), do: inspect(error)
