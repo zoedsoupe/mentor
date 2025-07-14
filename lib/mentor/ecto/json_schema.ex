@@ -63,13 +63,17 @@ defmodule Mentor.Ecto.JSONSchema do
         []
       end
 
+    # Create a new struct instance to detect fields with defaults
+    struct_instance = struct(ecto_schema)
+    default? = fn field -> not is_nil(Map.get(struct_instance, field)) end
+
     properties =
       :fields
       |> ecto_schema.__schema__()
       |> Enum.reject(&(&1 in ignored))
       |> Map.new(fn field ->
         type = ecto_schema.__schema__(:type, field)
-        value = for_type(type)
+        value = for_type(type, with_default?: default?.(field))
 
         {field, value}
       end)
@@ -87,7 +91,7 @@ defmodule Mentor.Ecto.JSONSchema do
           if association.cardinality == :many do
             %{
               items: %{"$ref": "#/$defs/#{title}"},
-              type: "array"
+              type: if(default?.(field), do: ["array", "null"], else: "array")
             }
           else
             %{"$ref": "#/$defs/#{title}"}
@@ -97,7 +101,13 @@ defmodule Mentor.Ecto.JSONSchema do
       end)
 
     properties = Map.merge(properties, associations)
-    required = properties |> Map.keys() |> Enum.sort()
+
+    required =
+      properties
+      |> Map.keys()
+      |> Enum.map(&to_string/1)
+      |> Enum.sort()
+
     title = title_for(ecto_schema)
 
     associated_schemas =
@@ -136,7 +146,7 @@ defmodule Mentor.Ecto.JSONSchema do
         {field, for_type(type)}
       end
 
-    required = properties |> Map.keys() |> Enum.sort()
+    required = properties |> Map.keys() |> Enum.map(&to_string/1) |> Enum.sort()
 
     embedded_schemas =
       for {_field, {:parameterized, {Ecto.Embedded, %{related: related}}}} <-
@@ -183,28 +193,37 @@ defmodule Mentor.Ecto.JSONSchema do
 
   defp find_all_values(_, _pred), do: []
 
-  defp for_type(:id), do: %{type: "integer"}
-  defp for_type(:binary_id), do: %{type: "string"}
-  defp for_type(:integer), do: %{type: "integer"}
-  defp for_type(:float), do: %{type: "number"}
-  defp for_type(:boolean), do: %{type: "boolean"}
-  defp for_type(:string), do: %{type: "string"}
-  defp for_type({:array, type}), do: %{type: "array", items: for_type(type)}
+  defp for_type(field, opts \\ [with_default?: false])
 
-  defp for_type({:map, type}), do: %{type: "object", additionalProperties: for_type(type)}
+  defp for_type(type, with_default?: true) do
+    case for_type(type) do
+      %{type: type} = def -> %{def | type: [type, "null"]}
+      def -> def
+    end
+  end
 
-  defp for_type(:decimal), do: %{type: "number"}
-  defp for_type(:date), do: %{type: "string"}
-  defp for_type(:time), do: %{type: "string"}
+  defp for_type(:id, _opts), do: %{type: "integer"}
+  defp for_type(:binary_id, _opts), do: %{type: "string"}
+  defp for_type(:integer, _opts), do: %{type: "integer"}
+  defp for_type(:float, _opts), do: %{type: "number"}
+  defp for_type(:boolean, _opts), do: %{type: "boolean"}
+  defp for_type(:string, _opts), do: %{type: "string"}
+  defp for_type({:array, type}, _opts), do: %{type: "array", items: for_type(type)}
+  defp for_type(:map, _opts), do: %{type: "object", additionalProperties: %{type: "string"}}
+  defp for_type({:map, type}, _opts), do: %{type: "object", additionalProperties: for_type(type)}
 
-  defp for_type(:time_usec), do: %{type: "string"}
+  defp for_type(:decimal, _opts), do: %{type: "number"}
+  defp for_type(:date, _opts), do: %{type: "string"}
+  defp for_type(:time, _opts), do: %{type: "string"}
 
-  defp for_type(:naive_datetime), do: %{type: "string"}
-  defp for_type(:naive_datetime_usec), do: %{type: "string"}
-  defp for_type(:utc_datetime), do: %{type: "string"}
-  defp for_type(:utc_datetime_usec), do: %{type: "string"}
+  defp for_type(:time_usec, _opts), do: %{type: "string"}
 
-  defp for_type({:parameterized, {Ecto.Embedded, %{cardinality: :many, related: related}}})
+  defp for_type(:naive_datetime, _opts), do: %{type: "string"}
+  defp for_type(:naive_datetime_usec, _opts), do: %{type: "string"}
+  defp for_type(:utc_datetime, _opts), do: %{type: "string"}
+  defp for_type(:utc_datetime_usec, _opts), do: %{type: "string"}
+
+  defp for_type({:parameterized, {Ecto.Embedded, %{cardinality: :many, related: related}}}, _opts)
        when is_ecto_schema(related) do
     title = title_for(related)
 
@@ -214,14 +233,14 @@ defmodule Mentor.Ecto.JSONSchema do
     }
   end
 
-  defp for_type({:parameterized, {Ecto.Embedded, %{cardinality: :many, related: related}}})
+  defp for_type({:parameterized, {Ecto.Embedded, %{cardinality: :many, related: related}}}, _opts)
        when is_ecto_types(related) do
     properties =
       for {field, type} <- related, into: %{} do
         {field, for_type(type)}
       end
 
-    required = properties |> Map.keys() |> Enum.sort()
+    required = properties |> Map.keys() |> Enum.map(&to_string/1) |> Enum.sort()
 
     %{
       items: %{
@@ -233,19 +252,19 @@ defmodule Mentor.Ecto.JSONSchema do
     }
   end
 
-  defp for_type({:parameterized, {Ecto.Embedded, %{cardinality: :one, related: related}}})
+  defp for_type({:parameterized, {Ecto.Embedded, %{cardinality: :one, related: related}}}, _opts)
        when is_ecto_schema(related) do
     %{"$ref": "#/$defs/#{title_for(related)}"}
   end
 
-  defp for_type({:parameterized, {Ecto.Embedded, %{cardinality: :one, related: related}}})
+  defp for_type({:parameterized, {Ecto.Embedded, %{cardinality: :one, related: related}}}, _opts)
        when is_ecto_types(related) do
     properties =
       for {field, type} <- related, into: %{} do
         {field, for_type(type)}
       end
 
-    required = properties |> Map.keys() |> Enum.sort()
+    required = properties |> Map.keys() |> Enum.map(&to_string/1) |> Enum.sort()
 
     %{
       type: "object",
@@ -254,14 +273,14 @@ defmodule Mentor.Ecto.JSONSchema do
     }
   end
 
-  defp for_type({:parameterized, {Ecto.Enum, %{mappings: mappings}}}) do
+  defp for_type({:parameterized, {Ecto.Enum, %{mappings: mappings}}}, _opts) do
     %{
       type: "string",
       enum: Keyword.keys(mappings)
     }
   end
 
-  defp for_type(mod) do
+  defp for_type(mod, _opts) do
     if Code.ensure_loaded?(mod) and function_exported?(mod, :to_json_schema, 0) do
       mod.to_json_schema()
     else

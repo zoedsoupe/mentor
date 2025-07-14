@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.6]  - 2025-07-14
+
+### Added
+
+- Anthropic adapter (#14)
+
+### Fixed
+
+- correctly handle ecto default values on JSON schema (#15)
+
+### Fixed
+- Moved `required_fields` option to be an adapter specific config (gemini) (#12)
+
 ## [0.2.5]  - 2025-05-29
 
 ### Fixed
