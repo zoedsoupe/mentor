@@ -63,6 +63,9 @@ defmodule Mentor.Ecto.JSONSchema do
         []
       end
 
+    # Create a new struct instance to detect fields with defaults
+    struct_instance = struct(ecto_schema)
+
     properties =
       :fields
       |> ecto_schema.__schema__()
@@ -97,7 +100,16 @@ defmodule Mentor.Ecto.JSONSchema do
       end)
 
     properties = Map.merge(properties, associations)
-    required = properties |> Map.keys() |> Enum.sort()
+
+    required =
+      properties
+      |> Map.keys()
+      |> Enum.filter(fn field ->
+        Map.get(struct_instance, field) == nil
+      end)
+      |> Enum.map(&to_string/1)
+      |> Enum.sort()
+
     title = title_for(ecto_schema)
 
     associated_schemas =
@@ -136,7 +148,7 @@ defmodule Mentor.Ecto.JSONSchema do
         {field, for_type(type)}
       end
 
-    required = properties |> Map.keys() |> Enum.sort()
+    required = properties |> Map.keys() |> Enum.map(&to_string/1) |> Enum.sort()
 
     embedded_schemas =
       for {_field, {:parameterized, {Ecto.Embedded, %{related: related}}}} <-
@@ -190,7 +202,7 @@ defmodule Mentor.Ecto.JSONSchema do
   defp for_type(:boolean), do: %{type: "boolean"}
   defp for_type(:string), do: %{type: "string"}
   defp for_type({:array, type}), do: %{type: "array", items: for_type(type)}
-
+  defp for_type(:map), do: %{type: "object", additionalProperties: %{type: "string"}}
   defp for_type({:map, type}), do: %{type: "object", additionalProperties: for_type(type)}
 
   defp for_type(:decimal), do: %{type: "number"}
@@ -221,7 +233,7 @@ defmodule Mentor.Ecto.JSONSchema do
         {field, for_type(type)}
       end
 
-    required = properties |> Map.keys() |> Enum.sort()
+    required = properties |> Map.keys() |> Enum.map(&to_string/1) |> Enum.sort()
 
     %{
       items: %{
@@ -245,7 +257,7 @@ defmodule Mentor.Ecto.JSONSchema do
         {field, for_type(type)}
       end
 
-    required = properties |> Map.keys() |> Enum.sort()
+    required = properties |> Map.keys() |> Enum.map(&to_string/1) |> Enum.sort()
 
     %{
       type: "object",
