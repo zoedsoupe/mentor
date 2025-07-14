@@ -6,11 +6,12 @@ defmodule Mentor do
 
   - Initiate and manage chat sessions with various LLM adapters.
   - Configure session parameters, including retry limits and debugging options.
-  - Validate LLM responses against predefined schemas to ensure data integrity. Supported schemas include `Ecto` schemas, structs, raw maps, `NimbleOptions`, and `Peri` schemas.
+  - Validate LLM responses against predefined schemas to ensure data integrity.
 
-  > #### Note {: .warning}
-  >
-  > For now, until `v0.1.0` only `Ecto` shemas are supported.
+  ## Supported Schema Types
+
+  - **Ecto schemas** - Database-backed schemas with field types and validations
+  - **Peri schemas** - Flexible runtime schemas supporting maps, lists, tuples, and primitive types
 
   ## Backoff calculation
 
@@ -42,6 +43,7 @@ defmodule Mentor do
   alias Mentor.LLM.Adapter
   alias Mentor.LLM.Adapters.Gemini
   alias Mentor.LLM.Adapters.OpenAI
+  alias Mentor.Peri, as: MentorPeri
 
   @type message :: %{role: String.t(), content: term}
 
@@ -120,7 +122,18 @@ defmodule Mentor do
 
   ## Examples
 
-      iex> Mentor.start_chat_with!(Mentor.LLM.Adapters.OpenAI, schema: MySchema)
+      # With Ecto schema
+      iex> Mentor.start_chat_with!(Mentor.LLM.Adapters.OpenAI, schema: MyEctoSchema)
+      %Mentor{}
+      
+      # With Peri schema (map)
+      iex> schema = %{name: {:required, :string}, age: :integer}
+      iex> Mentor.start_chat_with!(Mentor.LLM.Adapters.OpenAI, schema: schema)
+      %Mentor{}
+      
+      # With Peri schema (list)
+      iex> schema = {:list, :string}
+      iex> Mentor.start_chat_with!(Mentor.LLM.Adapters.OpenAI, schema: schema)
       %Mentor{}
 
       iex> Mentor.start_chat_with!(UnknownLLMAdapter, schema: MySchema)
@@ -140,8 +153,8 @@ defmodule Mentor do
       raise "#{inspect(adapter)} should implement the #{inspect(Adapter)} behaviour."
     end
 
-    if not ecto_schema?(schema) do
-      raise "#{inspect(schema)} should be an Ecto.Schema"
+    unless valid_schema?(schema) do
+      raise "#{inspect(schema)} should be a valid schema (Ecto.Schema, Peri schema, or module implementing Mentor.Schema behaviour)"
     end
 
     maybe_append_schema_documentation_message(%__MODULE__{
@@ -153,11 +166,21 @@ defmodule Mentor do
     })
   end
 
-  @spec ecto_schema?(module) :: boolean
-  defp ecto_schema?(schema) when is_atom(schema) do
-    if Code.ensure_loaded?(schema) do
-      function_exported?(schema, :__schema__, 1)
+  @spec valid_schema?(term) :: boolean
+  defp valid_schema?(schema) when is_atom(schema) do
+    Code.ensure_loaded?(schema) and function_exported?(schema, :__schema__, 1)
+  end
+
+  defp valid_schema?(schema) do
+    # Check if it's a valid Peri schema by attempting to validate the schema itself
+    # Peri supports maps, lists, tuples, and primitive types as schemas
+    case Peri.validate_schema(schema) do
+      {:ok, _} -> true
+      _ -> false
     end
+  rescue
+    # If Peri is not available, return false
+    _ -> false
   end
 
   defp maybe_append_schema_documentation_message(%__MODULE__{} = mentor) do
@@ -168,9 +191,23 @@ defmodule Mentor do
     end
   end
 
-  @spec maybe_get_documentation(module) :: String.t() | nil
-  defp maybe_get_documentation(schema) do
-    schema.__mentor_schema_documentation__() || schema.llm_description()
+  @spec maybe_get_documentation(term) :: String.t() | nil
+  defp maybe_get_documentation(schema) when is_atom(schema) do
+    cond do
+      function_exported?(schema, :__mentor_schema_documentation__, 0) ->
+        schema.__mentor_schema_documentation__()
+
+      function_exported?(schema, :llm_description, 0) ->
+        schema.llm_description()
+
+      true ->
+        nil
+    end
+  end
+
+  defp maybe_get_documentation(_schema) do
+    # For Peri schemas (maps, lists, tuples, etc.), we could generate documentation from the schema structure
+    nil
   end
 
   @doc """
@@ -397,25 +434,33 @@ defmodule Mentor do
     %{mentor | messages: messages, json_schema: json_schema}
   end
 
-  @spec parse_json_schema_from(module | map) :: map
+  @spec parse_json_schema_from(term) :: map
   defp parse_json_schema_from(schema) when is_atom(schema) do
-    MentorEcto.JSONSchema.from_ecto_schema(schema)
+    if function_exported?(schema, :__schema__, 1) do
+      MentorEcto.JSONSchema.from_ecto_schema(schema)
+    else
+      raise "Unsupported schema type: #{inspect(schema)}"
+    end
+  end
+
+  defp parse_json_schema_from(schema) do
+    MentorPeri.Schema.to_json_schema(schema)
   end
 
   defp consume_response(%Mentor{max_retries: max} = m, body) when max == 1 do
-    MentorEcto.Schema.validate(m.__schema__, body)
+    validate_with_schema(m.__schema__, body)
   end
 
   defp consume_response(%Mentor{max_retries: max} = mentor, body) do
-    with {:error, changeset} <- MentorEcto.Schema.validate(mentor.__schema__, body) do
-      formatted_errors = MentorEcto.Error.format_errors(changeset)
+    with {:error, errors} <- validate_with_schema(mentor.__schema__, body) do
+      formatted_errors = format_validation_errors(mentor.__schema__, errors)
 
       mentor
       |> append_message(%{role: "assistant", content: JSON.encode!(body)})
       |> append_message(%{
         role: "system",
         content: """
-        The response did not pass validation. Please try again and fix the following validation errors:
+        Your last response did not pass validation. Please try again and fix the following validation errors:
 
         #{formatted_errors}
         """
@@ -436,4 +481,43 @@ defmodule Mentor do
 
     min(max_backoff, (base_backoff * 2) ** attempt)
   end
+
+  defp validate_with_schema(schema, body) when is_atom(schema) do
+    if function_exported?(schema, :__schema__, 1) do
+      MentorEcto.Schema.validate(schema, body)
+    else
+      {:error, "Unsupported schema type"}
+    end
+  end
+
+  defp validate_with_schema(schema, body) do
+    MentorPeri.Schema.validate(schema, body)
+  end
+
+  defp format_validation_errors(schema, errors) when is_atom(schema) do
+    if function_exported?(schema, :__schema__, 1) do
+      MentorEcto.Error.format_errors(errors)
+    else
+      format_generic_errors(errors)
+    end
+  end
+
+  defp format_validation_errors(_schema, errors) do
+    format_generic_errors(errors)
+  end
+
+  defp format_generic_errors(%{errors: errors}) when is_list(errors) do
+    Enum.map_join(errors, "\n", fn
+      %{field: field, message: message} -> "#{field}: #{message}"
+      %{message: message} -> message
+      error when is_binary(error) -> error
+      error -> inspect(error)
+    end)
+  end
+
+  defp format_generic_errors(errors) when is_list(errors) do
+    Enum.join(errors, "\n")
+  end
+
+  defp format_generic_errors(error), do: inspect(error)
 end

@@ -127,12 +127,18 @@ defmodule Mentor.LLM.Adapters.Anthropic do
   defp make_request(config, mentor) do
     {body, regular_messages} = maybe_append_custom_system_prompt(%{}, mentor.messages)
 
+    json_schema_message = """
+
+    You should respect the following schema: #{inspect(mentor.json_schema, pretty: true)}
+    """
+
     body =
       Map.merge(body, %{
         model: config[:model],
         messages: Enum.map(regular_messages, &format_message/1),
         max_tokens: config[:max_tokens],
-        temperature: config[:temperature]
+        temperature: config[:temperature],
+        system: body.system <> json_schema_message
       })
 
     headers = [
@@ -150,7 +156,7 @@ defmodule Mentor.LLM.Adapters.Anthropic do
         {:error, error_message}
 
       {:error, reason} ->
-        {:error, "HTTP request failed: #{to_string(reason)}"}
+        {:error, "HTTP request failed: #{inspect(reason)}"}
     end
   end
 
@@ -179,6 +185,10 @@ defmodule Mentor.LLM.Adapters.Anthropic do
 
   defp extract_content(%{"content" => [%{"text" => text} | _]}) do
     {:ok, text}
+  end
+
+  defp extract_content(%{"content" => []}) do
+    {:ok, "{}"}
   end
 
   defp extract_content(%{"content" => content}) do

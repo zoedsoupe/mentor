@@ -36,4 +36,32 @@ defmodule Evaluator do
     })
     |> Mentor.complete
   end
+
+  @doc """
+  Run Peri schema examples if Peri is available.
+  """
+  def run_peri_examples do
+    if Code.ensure_loaded?(Peri) do
+      IO.puts("\n=== Running Peri Schema Examples ===")
+      PeriExamples.run_all()
+    else
+      IO.puts("\nPeri is not available. Add {:peri, \"~> 0.2\"} to your dependencies to run these examples.")
+    end
+  end
+
+  @doc """
+  Run all evaluation examples.
+  """
+  def run_all do
+    IO.puts("Running Schema example...")
+    IO.inspect(run_schema(), label: "Schema result")
+    
+    IO.puts("\nRunning NumberSeries example...")
+    IO.inspect(run_number_series(), label: "NumberSeries result")
+    
+    IO.puts("\nRunning Politician example...")
+    IO.inspect(run_politician(), label: "Politician result")
+    
+    run_peri_examples()
+  end
 end
