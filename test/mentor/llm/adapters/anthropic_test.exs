@@ -106,7 +106,7 @@ defmodule Mentor.LLM.Adapters.AnthropicTest do
         {:error, :timeout}
       end)
 
-      assert {:error, "HTTP request failed: timeout"} = Anthropic.complete(mentor)
+      assert {:error, "HTTP request failed: :timeout"} = Anthropic.complete(mentor)
     end
 
     test "handles malformed responses", %{mentor: mentor} do
