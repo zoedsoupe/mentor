@@ -193,10 +193,7 @@ defmodule Mentor.LLM.Adapters.Gemini do
     {key, transformed_value}
   end
 
-  defp normalize_type([type | _]) when is_atom(type), do: Atom.to_string(type)
   defp normalize_type([type | _]), do: type
-
-  defp normalize_type(type) when is_atom(type), do: Atom.to_string(type)
 
   defp normalize_type(type), do: type
 
