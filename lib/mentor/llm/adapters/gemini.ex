@@ -171,16 +171,7 @@ defmodule Mentor.LLM.Adapters.Gemini do
       _ ->
         map
         |> Map.delete(:additionalProperties)
-        |> Enum.map(fn {key, value} ->
-          transformed_value =
-            if key == :type do
-              normalize_type(value)
-            else
-              do_transform(value, defs)
-            end
-
-          {key, transformed_value}
-        end)
+        |> Enum.map(&transform_map_entry(&1, defs))
         |> Map.new()
     end
   end
@@ -190,6 +181,17 @@ defmodule Mentor.LLM.Adapters.Gemini do
   end
 
   defp do_transform(value, _defs), do: value
+
+  defp transform_map_entry({key, value}, defs) do
+    transformed_value =
+      if key == :type do
+        normalize_type(value)
+      else
+        do_transform(value, defs)
+      end
+
+    {key, transformed_value}
+  end
 
   defp normalize_type([type | _]) when is_atom(type), do: Atom.to_string(type)
   defp normalize_type([type | _]), do: type
