@@ -146,14 +146,57 @@ defmodule Mentor.LLM.Adapters.Gemini do
     end
   end
 
-  defp update_schema_for_gemini(schema, config) do
-    schema_without_additional_props = Map.delete(schema, :additionalProperties)
+  def update_schema_for_gemini(schema, config \\ []) do
+    defs = Map.get(schema, :"$defs", %{})
+    schema_without_defs = Map.delete(schema, :"$defs")
+
+    transformed_schema = do_transform(schema_without_defs, defs)
 
     case Keyword.get(config, :required_fields) do
-      nil -> schema_without_additional_props
-      required_fields -> %{schema_without_additional_props | required: required_fields}
+      nil -> transformed_schema
+      required_fields -> %{transformed_schema | required: required_fields}
     end
   end
+
+  defp do_transform(%{} = map, defs) do
+    case Map.get(map, :"$ref") do
+      "#" <> rest ->
+        path_parts = String.split(rest, "/", trim: true)
+        def_key = List.last(path_parts)
+
+        ref_schema = Map.get(defs, def_key)
+
+        do_transform(ref_schema, defs)
+
+      _ ->
+        map
+        |> Map.delete(:additionalProperties)
+        |> Enum.map(fn {key, value} ->
+          transformed_value =
+            if key == :type do
+              normalize_type(value)
+            else
+              do_transform(value, defs)
+            end
+
+          {key, transformed_value}
+        end)
+        |> Map.new()
+    end
+  end
+
+  defp do_transform([_ | _] = list, defs) do
+    Enum.map(list, &do_transform(&1, defs))
+  end
+
+  defp do_transform(value, _defs), do: value
+
+  defp normalize_type([type | _]) when is_atom(type), do: Atom.to_string(type)
+  defp normalize_type([type | _]), do: type
+
+  defp normalize_type(type) when is_atom(type), do: Atom.to_string(type)
+
+  defp normalize_type(type), do: type
 
   defp extract_system_instruction(messages) do
     system_message = Enum.find(messages, fn msg -> msg.role == "system" end)
