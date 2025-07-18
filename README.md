@@ -1,8 +1,5 @@
 # Mentor
 
-> [!WARNING]
-> This library is under actively development, expect breaking changes, although the main public API is kinda stable
-
 [![mentor version](https://img.shields.io/hexpm/v/mentor.svg)](https://hex.pm/packages/mentor)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/mentor)
 [![Hex Downloads](https://img.shields.io/hexpm/dt/mentor)](https://hex.pm/packages/mentor)
@@ -19,7 +16,7 @@ No magic, but a higher-level API to generate structed output with LLM, based on 
 ```elixir
 def deps do
   [
-    {:mentor, "~> 0.2"}
+    {:mentor, "~> 0.2.7"} # x-release-version
   ]
 end
 ```
