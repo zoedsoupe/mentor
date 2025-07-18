@@ -2,11 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.2.7]  - 2025-07-18
+## [0.2.7](https://github.com/zoedsoupe/mentor/compare/v0.2.7...v0.2.7) (2025-07-18)
 
-### Fixed
 
-- Adding recursive transformation for nested schemas on Gemini adapter (#17)
+### config
+
+* release-please ([#18](https://github.com/zoedsoupe/mentor/issues/18)) ([e1dbb4d](https://github.com/zoedsoupe/mentor/commit/e1dbb4d5949be17958af657cf720d8595f04000e))
+
+
+### Bug Fixes
+
+* correctly handle default values and required fiedls (open ai) ([0531f1e](https://github.com/zoedsoupe/mentor/commit/0531f1ee9dc8d36da8df41a7cc990ebd03213962))
 
 ## [0.2.6]  - 2025-07-14
 
