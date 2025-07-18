@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.7]  - 2025-07-18
+
+### Fixed
+
+- Adding recursive transformation for nested schemas on Gemini adapter (#17)
+
 ## [0.2.6]  - 2025-07-14
 
 ### Added
