@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.8](https://github.com/zoedsoupe/mentor/compare/v0.2.7...v0.2.8) (2025-07-18)
+
+
+### Miscellaneous Chores
+
+* readme ([e83cdc4](https://github.com/zoedsoupe/mentor/commit/e83cdc49e86342206f179d4909ec09e7a9eb8823))
+
 ## [0.2.7](https://github.com/zoedsoupe/mentor/compare/v0.2.7...v0.2.7) (2025-07-18)
 
 
