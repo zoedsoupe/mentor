@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.7](https://github.com/zoedsoupe/mentor/compare/v0.2.7...v0.2.7) (2025-07-18)
+
+
+### config
+
+* release-please ([#18](https://github.com/zoedsoupe/mentor/issues/18)) ([e1dbb4d](https://github.com/zoedsoupe/mentor/commit/e1dbb4d5949be17958af657cf720d8595f04000e))
+
+
+### Features
+
+* adding recursive transformation for nested schemas ([#17](https://github.com/zoedsoupe/mentor/issues/17)) ([b75e3bc](https://github.com/zoedsoupe/mentor/commit/b75e3bce505a8ceba691eda605c9d5dab4eeac50))
+* anthropic adapter ([#14](https://github.com/zoedsoupe/mentor/issues/14)) ([0531f1e](https://github.com/zoedsoupe/mentor/commit/0531f1ee9dc8d36da8df41a7cc990ebd03213962))
+* simplifies the parser ([9dd5c78](https://github.com/zoedsoupe/mentor/commit/9dd5c78f2c0faab7baeed3a839cb66df0a57d5fe))
+* support custom llm_description/0 callback ([9dd5c78](https://github.com/zoedsoupe/mentor/commit/9dd5c78f2c0faab7baeed3a839cb66df0a57d5fe))
+
+
+### Bug Fixes
+
+* correctly handle default values and required fiedls (open ai) ([0531f1e](https://github.com/zoedsoupe/mentor/commit/0531f1ee9dc8d36da8df41a7cc990ebd03213962))
+
+
+### Miscellaneous Chores
+
+* documentation ([9dd5c78](https://github.com/zoedsoupe/mentor/commit/9dd5c78f2c0faab7baeed3a839cb66df0a57d5fe))
+
 ## [0.2.7]  - 2025-07-18
 
 ### Fixed
