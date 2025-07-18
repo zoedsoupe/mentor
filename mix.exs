@@ -16,7 +16,7 @@ defmodule Mentor.MixProject do
       description: description(),
       source_url: @source_url,
       elixirc_paths: elixirc_paths(Mix.env()),
-      dialyzer: [plt_local_path: "priv/plts", ignore_warnings: ".dialyzerignore"]
+      dialyzer: [plt_local_path: "priv/plts", ignore_warnings: ".dialyzerignore.exs"]
     ]
   end
 
