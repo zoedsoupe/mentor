@@ -20,11 +20,11 @@
   in {
     devShells = forAllSystems (pkgs: let
       inherit (pkgs) mkShell;
-      inherit (pkgs.beam.interpreters) erlang_27;
+      inherit (pkgs.beam.interpreters) erlang_28;
     in {
       default = mkShell {
         name = "mentor";
-        packages = with pkgs; [elixir-bin."1.19.0-rc.0" erlang_27];
+        packages = with pkgs; [(elixir-with-otp erlang_28)."1.18.4" erlang_28];
       };
     });
   };

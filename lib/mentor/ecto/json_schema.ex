@@ -17,7 +17,7 @@ defmodule Mentor.Ecto.JSONSchema do
   """
   def from_ecto_schema(ecto_schema) do
     defs =
-      for schema <- bfs_from_ecto_schema([ecto_schema], %MapSet{}), into: %{} do
+      for schema <- bfs_from_ecto_schema([ecto_schema], MapSet.new()), into: %{} do
         {schema.title, schema}
       end
 
